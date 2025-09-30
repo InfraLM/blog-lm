@@ -1,0 +1,66 @@
+# ========================================
+# .gitattributes - Blog LM
+# Configurações de linha e arquivos
+# ========================================
+
+# Default: normalizar quebras de linha para LF
+* text=auto eol=lf
+
+# Scripts do Windows (manter CRLF)
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Arquivos de texto (forçar LF)
+*.js text eol=lf
+*.jsx text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.css text eol=lf
+*.scss text eol=lf
+*.html text eol=lf
+*.xml text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.sql text eol=lf
+
+# Arquivos binários
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.eot binary
+*.svg binary
+*.zip binary
+*.tar binary
+*.gz binary
+*.mp4 binary
+*.mp3 binary
+*.wav binary
+
+# Linguist (para estatísticas do GitHub)
+*.css linguist-detectable=false
+*.scss linguist-detectable=false
+*.js linguist-detectable=true
+*.jsx linguist-detectable=true
+*.ts linguist-detectable=true
+*.tsx linguist-detectable=true
+
+# Arquivos específicos do projeto
+/frontend/package.json text eol=lf
+/backend/package.json text eol=lf
+/frontend/pnpm-lock.yaml text eol=lf
+/backend/pnpm-lock.yaml text eol=lf
+
+# Documentação
+*.md text diff=markdown
+CHANGELOG.md text
+README.md text
