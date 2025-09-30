@@ -1,0 +1,224 @@
+/* CombinedTopicsSection.css */
+
+.combined-topics-section {
+  width: 100%;
+  background-color: #f8f9fa;
+  padding: 40px 0;
+  margin: 20px 0;
+}
+
+.combined-topics-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 40px;
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 60px;
+  align-items: start;
+}
+
+.left-topics-column,
+.right-topics-column {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.section-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 20px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.find-topic-text {
+  font-size: 16px;
+  color: #7f8c8d;
+  margin-bottom: 20px;
+}
+
+/* Navegação por alfabeto */
+.alphabet-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 25px;
+}
+
+.alphabet-letter {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  font-weight: 600;
+  color: #6c757d;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+}
+
+.alphabet-letter:hover,
+.alphabet-letter.active {
+  background: #3498db;
+  border-color: #3498db;
+  color: white;
+  transform: translateY(-2px);
+}
+
+/* Barra de pesquisa */
+.search-container {
+  position: relative;
+  margin-bottom: 30px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 12px 45px 12px 15px;
+  border: 2px solid #e9ecef;
+  border-radius: 25px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.3s ease;
+}
+
+.search-input:focus {
+  border-color: #3498db;
+}
+
+.search-icon {
+  position: absolute;
+  right: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6c757d;
+  font-size: 16px;
+}
+
+/* Grid de cards de tópicos */
+.topics-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 15px;
+}
+
+.topic-card {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+  cursor: pointer;
+  border: 2px solid transparent;
+}
+
+.topic-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  border-color: #e9ecef;
+}
+
+.topic-card-image {
+  width: 100%;
+  height: 100px;
+  overflow: hidden;
+}
+
+.topic-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.topic-card:hover .topic-image {
+  transform: scale(1.05);
+}
+
+.topic-card-content {
+  padding: 12px;
+}
+
+.topic-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #2c3e50;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.no-results {
+  text-align: center;
+  padding: 40px;
+  color: #7f8c8d;
+}
+
+/* Ajustes para os componentes internos */
+.left-topics-column .taxonomy-grid,
+.right-topics-column .topic-search {
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+
+/* Responsividade */
+@media (max-width: 1024px) {
+  .combined-topics-container {
+    grid-template-columns: 1fr;
+    gap: 40px;
+    padding: 0 20px;
+  }
+  
+  .section-title {
+    font-size: 20px;
+  }
+  
+  .topics-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+  }
+}
+
+@media (max-width: 768px) {
+  .combined-topics-section {
+    padding: 30px 0;
+  }
+  
+  .combined-topics-container {
+    padding: 0 15px;
+    gap: 30px;
+  }
+  
+  .section-title {
+    font-size: 18px;
+    margin-bottom: 15px;
+  }
+  
+  .alphabet-nav {
+    gap: 6px;
+  }
+  
+  .alphabet-letter {
+    width: 35px;
+    height: 35px;
+    font-size: 14px;
+  }
+  
+  .topics-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  
+  .topic-card-image {
+    height: 100px;
+  }
+  
+  .topic-card-content {
+    padding: 12px;
+  }
+}
