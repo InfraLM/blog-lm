@@ -47,19 +47,14 @@ function ArticlePage() {
       <Header />
       <ArticleHeader 
         title={article.titulo} 
-        lastUpdated={article.data_atualizacao || article.data_criacao} 
+        lastUpdated={article.data_atualizacao || article.data_criacao}
+        categoria={article.categoria}
+        autor={article.autor}
       />
-      <ArticleNav />
-      <ArticleBody content={article.content} />
-      
-      <div className="container mx-auto px-4 py-8">
-        <button
-          onClick={() => navigate('/')}
-          className="bg-gray-500 hover:bg-gray-600 text-white font-semibold px-6 py-3 rounded-lg transition-colors duration-200"
-        >
-          ← Voltar para Home
-        </button>
-      </div>
+      <ArticleNav 
+        onNavigateBack={() => navigate('/')}
+      />
+      <ArticleBody content={article.content || article.conteudo_completo} />
     </div>
   );
 }
@@ -88,13 +83,19 @@ function HomePage() {
             onClick={() => navigate('/artigo/1')}
             className="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-6 py-3 rounded-lg transition-colors"
           >
-            Artigo ID 1
+            Ver Artigo 1
           </button>
           <button
             onClick={() => navigate('/artigo/2')}
             className="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-6 py-3 rounded-lg transition-colors"
           >
-            Artigo ID 2
+            Ver Artigo 2
+          </button>
+          <button
+            onClick={() => navigate('/artigo/3')}
+            className="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-6 py-3 rounded-lg transition-colors"
+          >
+            Ver Artigo 3
           </button>
         </div>
       </section>

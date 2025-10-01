@@ -1,42 +1,48 @@
-import React, { useState } from 'react';
-import { ChevronRight } from 'lucide-react';
+import React from 'react';
+import { ArrowLeft } from 'lucide-react';
 
-const ArticleNav = ({ sections }) => {
-  const [activeSection, setActiveSection] = useState(0);
-
-  const defaultSections = [
-    "Descrição Geral",
-    "Fisiopatologia", 
-    "Apresentação Clínica",
-    "Exame Físico",
-    "Diagnóstico",
-    "Tratamento",
-    "Procedimento"
-  ];
-
-  const sectionList = sections || defaultSections;
-
+const ArticleNav = ({ onNavigateBack }) => {
   return (
-    <div className="bg-gray-50 border-b border-gray-200 py-4">
-      <div className="container mx-auto px-4">
-        <nav className="flex flex-wrap gap-2">
-          {sectionList.map((section, index) => (
-            <button
-              key={index}
-              onClick={() => setActiveSection(index)}
-              className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
-                activeSection === index
-                  ? 'bg-red-500 text-white'
-                  : 'bg-white text-gray-700 hover:bg-red-50 hover:text-red-600 border border-gray-200'
-              }`}
-            >
-              {section}
-              {activeSection === index && (
-                <ChevronRight className="w-4 h-4" />
-              )}
-            </button>
-          ))}
-        </nav>
+    <div style={{
+      background: 'white',
+      borderBottom: '1px solid #e5e7eb',
+      padding: '1rem 0'
+    }}>
+      <div style={{
+        maxWidth: '1200px',
+        margin: '0 auto',
+        padding: '0 1rem'
+      }}>
+        {onNavigateBack && (
+          <button 
+            onClick={onNavigateBack}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              background: '#f3f4f6',
+              border: '1px solid #d1d5db',
+              color: '#374151',
+              padding: '0.5rem 1rem',
+              borderRadius: '0.375rem',
+              fontWeight: '500',
+              transition: 'all 0.2s ease',
+              cursor: 'pointer',
+              fontFamily: 'Inter, sans-serif'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.background = '#e5e7eb';
+              e.target.style.color = '#ef4444';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.background = '#f3f4f6';
+              e.target.style.color = '#374151';
+            }}
+          >
+            <ArrowLeft style={{ width: '1rem', height: '1rem' }} />
+            Voltar
+          </button>
+        )}
       </div>
     </div>
   );
