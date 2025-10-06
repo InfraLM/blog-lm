@@ -1,42 +1,19 @@
-// backend/src/routes/articles.js - VERSÃO CORRIGIDA
 const express = require('express');
 const router = express.Router();
-const ArticleController = require('../controllers/articleController');
+const articleController = require('../controllers/articleController');
 
-// Middleware de logging para debug
-router.use((req, res, next) => {
-  console.log(`📍 Rota Articles: ${req.method} ${req.path}`);
-  next();
-});
+// Rotas públicas de leitura
+router.get('/articles', articleController.getAll);
+router.get('/articles/featured-main', articleController.getFeaturedMain);
+router.get('/articles/recent', articleController.getRecent);
+router.get('/articles/search-by-letter/:letter', articleController.searchByLetter);
+router.get('/articles/slug/:slug', articleController.getBySlug);
+router.get('/articles/:id', articleController.getById);
+router.get('/categories', articleController.getCategories);
 
-// Rotas específicas DEVEM vir ANTES das rotas com parâmetros
-router.get('/featured', ArticleController.getFeatured);
-router.get('/most-clicked', ArticleController.getMostClicked || ArticleController.getFeatured);
-router.get('/stats', ArticleController.getStats || ((req, res) => {
-  res.json({
-    success: true,
-    data: {
-      message: 'Estatísticas não implementadas ainda',
-      total_artigos: 0
-    }
-  });
-}));
-
-// Rotas com parâmetros vêm depois
-router.get('/slug/:slug', ArticleController.getBySlug);
-router.get('/:id', ArticleController.getById);
-
-// Rota principal (listar todos) vem por último
-router.get('/', ArticleController.getAll);
-
-// Middleware de tratamento de erros específico para articles
-router.use((error, req, res, next) => {
-  console.error('❌ Erro nas rotas de articles:', error);
-  res.status(500).json({
-    success: false,
-    message: 'Erro interno nas rotas de artigos',
-    error: process.env.NODE_ENV === 'development' ? error.message : undefined
-  });
-});
+// Rotas de escrita (proteger em produção)
+router.post('/articles', articleController.create);
+router.put('/articles/:id', articleController.update);
+router.delete('/articles/:id', articleController.delete);
 
 module.exports = router;

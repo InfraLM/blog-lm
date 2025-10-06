@@ -1,343 +1,407 @@
-const Article = require('../models/Article');
-const { validationResult } = require('express-validator');
+const pool = require('../config/database').pool;
 const NodeCache = require('node-cache');
 
 // Cache com TTL de 5 minutos
 const cache = new NodeCache({ stdTTL: 300 });
 
 class ArticleController {
-  // Listar todos os artigos
-  static async getAll(req, res) {
+  // Listar todos os artigos com filtros
+  async getAll(req, res) {
     try {
-      console.log('🔍 Iniciando busca de artigos...');
-      
-      const {
-        categoria,
-        autor,
+      const { 
+        categoria, 
+        status = 'publicado', 
+        limit = 10, 
+        offset = 0,
         destaque,
-        tags,
-        search,
-        orderBy,
-        page = 1,
-        limit = 20
+        search 
       } = req.query;
 
-      // Calcular offset
-      const offset = (page - 1) * limit;
+      let query = 'SELECT * FROM blog_artigos WHERE 1=1';
+      const params = [];
+      let paramCount = 0;
 
-      // Preparar filtros
-      const filters = {
-        categoria,
-        autor,
-        destaque: destaque === 'true' ? true : destaque === 'false' ? false : undefined,
-        tags: tags ? tags.split(',') : undefined,
-        search,
-        orderBy,
-        limit: parseInt(limit),
-        offset: parseInt(offset)
-      };
-
-      console.log('📋 Filtros aplicados:', filters);
-
-      // Gerar chave de cache
-      const cacheKey = `articles_${JSON.stringify(filters)}`;
-
-      // Verificar cache
-      let articles = cache.get(cacheKey);
-
-      if (!articles) {
-        console.log('💾 Cache miss - buscando no banco de dados...');
-        
-        try {
-          // Tentar buscar artigos do banco
-          articles = await Article.findAll(filters);
-          console.log(`✅ Encontrados ${articles.length} artigos no banco`);
-          
-          // Salvar no cache apenas se encontrou artigos
-          if (articles && articles.length > 0) {
-            cache.set(cacheKey, articles);
-          }
-        } catch (dbError) {
-          console.error('❌ Erro ao buscar no banco de dados:', dbError);
-          
-          // Fallback: retornar dados mockados para não quebrar o frontend
-          console.log('🔄 Usando dados de fallback...');
-          articles = [
-            {
-              id: 1,
-              titulo: "Protocolo de Sepse em Medicina de Emergência",
-              categoria: "Medicina de Emergência",
-              autor: "Dr. João Silva",
-              resumo: "Protocolo completo para diagnóstico e tratamento de sepse em ambiente de emergência.",
-              slug: "protocolo-sepse-emergencia",
-              data_criacao: new Date().toISOString(),
-              tempo_leitura: 15,
-              destaque: true,
-              visualizacoes: 1250
-            },
-            {
-              id: 2,
-              titulo: "Manejo de Parada Cardiorrespiratória",
-              categoria: "Medicina de Emergência",
-              autor: "Dra. Maria Santos",
-              resumo: "Diretrizes atualizadas para ressuscitação cardiopulmonar em adultos.",
-              slug: "manejo-parada-cardiorrespiratoria",
-              data_criacao: new Date(Date.now() - 86400000).toISOString(),
-              tempo_leitura: 12,
-              destaque: false,
-              visualizacoes: 890
-            },
-            {
-              id: 3,
-              titulo: "Intubação Orotraqueal: Técnicas e Indicações",
-              categoria: "Procedimentos",
-              autor: "Dr. Carlos Lima",
-              resumo: "Guia prático para intubação orotraqueal em situações de emergência.",
-              slug: "intubacao-orotraqueal-tecnicas",
-              data_criacao: new Date(Date.now() - 172800000).toISOString(),
-              tempo_leitura: 18,
-              destaque: true,
-              visualizacoes: 2100
-            }
-          ];
-          
-          // Aplicar filtros básicos aos dados mockados
-          if (filters.categoria) {
-            articles = articles.filter(article => 
-              article.categoria.toLowerCase().includes(filters.categoria.toLowerCase())
-            );
-          }
-          
-          if (filters.destaque !== undefined) {
-            articles = articles.filter(article => article.destaque === filters.destaque);
-          }
-        }
-      } else {
-        console.log('⚡ Cache hit - usando dados em cache');
+      if (status) {
+        params.push(status);
+        query += ` AND status = $${++paramCount}`;
       }
 
-      // Calcular total para paginação
-      const total = articles.length;
+      if (categoria) {
+        params.push(categoria);
+        query += ` AND categoria = $${++paramCount}`;
+      }
+
+      if (destaque !== undefined) {
+        params.push(destaque === 'true');
+        query += ` AND destaque = $${++paramCount}`;
+      }
+
+      if (search) {
+        params.push(`%${search}%`);
+        query += ` AND (titulo ILIKE $${++paramCount} OR resumo ILIKE $${paramCount})`;
+      }
+
+      query += ` ORDER BY created_at DESC`;
+      params.push(limit);
+      query += ` LIMIT $${++paramCount}`;
+      params.push(offset);
+      query += ` OFFSET $${++paramCount}`;
+
+      const result = await pool.query(query, params);
       
-      // Aplicar paginação
-      const paginatedArticles = articles.slice(offset, offset + parseInt(limit));
-
-      console.log(`📄 Retornando ${paginatedArticles.length} artigos (página ${page})`);
-
       res.json({
         success: true,
-        data: paginatedArticles,
-        pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total: total,
-          totalPages: Math.ceil(total / parseInt(limit))
-        },
-        meta: {
-          cached: !!cache.get(cacheKey),
-          timestamp: new Date().toISOString()
-        }
+        data: result.rows,
+        total: result.rowCount
       });
-
     } catch (error) {
-      console.error('💥 Erro crítico no controller:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Erro interno do servidor',
-        error: process.env.NODE_ENV === 'development' ? {
-          message: error.message,
-          stack: error.stack
-        } : undefined,
-        timestamp: new Date().toISOString()
+      console.error('Erro ao buscar artigos:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Erro ao buscar artigos' 
       });
     }
   }
 
-  // Buscar artigo por ID
-  static async getById(req, res) {
+  // Buscar artigo em destaque principal
+  async getFeaturedMain(req, res) {
     try {
-      const { id } = req.params;
-      console.log(`🔍 Buscando artigo ID: ${id}`);
-
-      const cacheKey = `article_${id}`;
-      let article = cache.get(cacheKey);
-
-      if (!article) {
-        try {
-          article = await Article.findById(id);
-          if (article) {
-            cache.set(cacheKey, article);
-          }
-        } catch (dbError) {
-          console.error('❌ Erro ao buscar artigo por ID:', dbError);
-          
-          // Fallback para artigo específico
-          if (id === '1') {
-            article = {
-              id: 1,
-              titulo: "Protocolo de Sepse em Medicina de Emergência",
-              categoria: "Medicina de Emergência",
-              autor: "Dr. João Silva",
-              resumo: "Protocolo completo para diagnóstico e tratamento de sepse em ambiente de emergência.",
-              conteudo_completo: "# Protocolo de Sepse\n\nA sepse é uma condição médica grave...",
-              slug: "protocolo-sepse-emergencia",
-              data_criacao: new Date().toISOString(),
-              tempo_leitura: 15,
-              destaque: true,
-              visualizacoes: 1250
-            };
-          }
-        }
+      const cacheKey = 'featured-main';
+      const cachedData = cache.get(cacheKey);
+      
+      if (cachedData) {
+        return res.json({ success: true, data: cachedData });
       }
 
-      if (!article) {
-        return res.status(404).json({
-          success: false,
-          message: 'Artigo não encontrado'
+      const query = `
+        SELECT id, titulo, slug, categoria, autor, coautor, resumo, 
+               imagem_principal, created_at, tempo_leitura, content
+        FROM blog_artigos 
+        WHERE destaque = true AND status = 'publicado'
+        ORDER BY created_at DESC
+        LIMIT 1
+      `;
+      
+      const result = await pool.query(query);
+      const data = result.rows[0] || null;
+      
+      cache.set(cacheKey, data);
+      res.json({ success: true, data });
+    } catch (error) {
+      console.error('Erro ao buscar destaque:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Erro ao buscar artigo em destaque' 
+      });
+    }
+  }
+
+  // Buscar últimos 3 artigos
+  async getRecent(req, res) {
+    try {
+      const { excludeId } = req.query;
+      const cacheKey = `recent-${excludeId || 'all'}`;
+      const cachedData = cache.get(cacheKey);
+      
+      if (cachedData) {
+        return res.json({ success: true, data: cachedData });
+      }
+
+      let query = `
+        SELECT id, titulo, slug, categoria, autor, coautor, resumo, 
+               imagem_principal, created_at, tempo_leitura
+        FROM blog_artigos 
+        WHERE status = 'publicado'
+      `;
+      
+      const params = [];
+      if (excludeId) {
+        params.push(excludeId);
+        query += ` AND id != $1`;
+      }
+      
+      query += ` ORDER BY created_at DESC LIMIT 3`;
+      
+      const result = await pool.query(query, params);
+      
+      cache.set(cacheKey, result.rows);
+      res.json({ success: true, data: result.rows });
+    } catch (error) {
+      console.error('Erro ao buscar recentes:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Erro ao buscar artigos recentes' 
+      });
+    }
+  }
+
+  // Buscar por letra inicial
+  async searchByLetter(req, res) {
+    try {
+      const { letter } = req.params;
+      
+      if (!letter || letter.length !== 1) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Letra inválida' 
         });
       }
 
-      res.json({
-        success: true,
-        data: article
+      const query = `
+        SELECT DISTINCT id, titulo, slug, categoria, autor, coautor, 
+               resumo, imagem_principal, created_at, tempo_leitura
+        FROM blog_artigos
+        WHERE status = 'publicado'
+          AND (
+            LOWER(categoria) LIKE LOWER($1) 
+            OR EXISTS (
+              SELECT 1 FROM unnest(string_to_array(LOWER(titulo), ' ')) AS word
+              WHERE word LIKE LOWER($1)
+            )
+          )
+        ORDER BY created_at DESC
+        LIMIT 20
+      `;
+      
+      const result = await pool.query(query, [`${letter}%`]);
+      
+      res.json({ 
+        success: true, 
+        data: result.rows,
+        letter: letter.toUpperCase()
       });
-
     } catch (error) {
-      console.error('💥 Erro ao buscar artigo por ID:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Erro interno do servidor',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      console.error('Erro na busca por letra:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Erro na busca por letra' 
       });
     }
   }
 
-  // Buscar artigo por slug
-  static async getBySlug(req, res) {
+  // Buscar por slug
+  async getBySlug(req, res) {
     try {
       const { slug } = req.params;
-      console.log(`🔍 Buscando artigo por slug: ${slug}`);
-
-      const cacheKey = `article_slug_${slug}`;
-      let article = cache.get(cacheKey);
-
-      if (!article) {
-        try {
-          article = await Article.findBySlug(slug);
-          if (article) {
-            cache.set(cacheKey, article);
-          }
-        } catch (dbError) {
-          console.error('❌ Erro ao buscar artigo por slug:', dbError);
-          
-          // Fallback baseado no slug
-          const mockArticles = {
-            'protocolo-sepse-emergencia': {
-              id: 1,
-              titulo: "Protocolo de Sepse em Medicina de Emergência",
-              categoria: "Medicina de Emergência",
-              autor: "Dr. João Silva",
-              resumo: "Protocolo completo para diagnóstico e tratamento de sepse.",
-              conteudo_completo: "# Protocolo de Sepse\n\nA sepse é uma condição médica grave que requer intervenção imediata...",
-              slug: "protocolo-sepse-emergencia",
-              data_criacao: new Date().toISOString(),
-              tempo_leitura: 15,
-              destaque: true,
-              visualizacoes: 1250
-            }
-          };
-          
-          article = mockArticles[slug];
-        }
+      const cacheKey = `article-${slug}`;
+      const cachedData = cache.get(cacheKey);
+      
+      if (cachedData) {
+        return res.json({ success: true, data: cachedData });
       }
 
-      if (!article) {
-        return res.status(404).json({
-          success: false,
-          message: 'Artigo não encontrado'
+      const query = `
+        SELECT * FROM blog_artigos 
+        WHERE slug = $1 AND status = 'publicado'
+        LIMIT 1
+      `;
+      
+      const result = await pool.query(query, [slug]);
+      
+      if (result.rows.length === 0) {
+        return res.status(404).json({ 
+          success: false, 
+          error: 'Artigo não encontrado' 
         });
       }
 
-      res.json({
-        success: true,
-        data: article
-      });
+      // Incrementar visualizações
+      await pool.query(
+        'UPDATE blog_artigos SET visualizacoes = COALESCE(visualizacoes, 0) + 1 WHERE id = $1',
+        [result.rows[0].id]
+      );
 
+      cache.set(cacheKey, result.rows[0]);
+      res.json({ success: true, data: result.rows[0] });
     } catch (error) {
-      console.error('💥 Erro ao buscar artigo por slug:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Erro interno do servidor',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      console.error('Erro ao buscar artigo:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Erro ao buscar artigo' 
       });
     }
   }
 
-  // Artigos em destaque
-  static async getFeatured(req, res) {
+  // Buscar por ID
+  async getById(req, res) {
     try {
-      console.log('⭐ Buscando artigos em destaque...');
+      const { id } = req.params;
       
-      const cacheKey = 'featured_articles';
-      let articles = cache.get(cacheKey);
-
-      if (!articles) {
-        try {
-          articles = await Article.findAll({ destaque: true, limit: 5 });
-          if (articles && articles.length > 0) {
-            cache.set(cacheKey, articles);
-          }
-        } catch (dbError) {
-          console.error('❌ Erro ao buscar artigos em destaque:', dbError);
-          
-          // Fallback para artigos em destaque
-          articles = [
-            {
-              id: 1,
-              titulo: "Protocolo de Sepse em Medicina de Emergência",
-              categoria: "Medicina de Emergência",
-              autor: "Dr. João Silva",
-              resumo: "Protocolo completo para diagnóstico e tratamento de sepse.",
-              slug: "protocolo-sepse-emergencia",
-              data_criacao: new Date().toISOString(),
-              tempo_leitura: 15,
-              destaque: true,
-              visualizacoes: 1250
-            },
-            {
-              id: 3,
-              titulo: "Intubação Orotraqueal: Técnicas e Indicações",
-              categoria: "Procedimentos",
-              autor: "Dr. Carlos Lima",
-              resumo: "Guia prático para intubação orotraqueal em situações de emergência.",
-              slug: "intubacao-orotraqueal-tecnicas",
-              data_criacao: new Date(Date.now() - 172800000).toISOString(),
-              tempo_leitura: 18,
-              destaque: true,
-              visualizacoes: 2100
-            }
-          ];
-        }
+      const query = 'SELECT * FROM blog_artigos WHERE id = $1';
+      const result = await pool.query(query, [id]);
+      
+      if (result.rows.length === 0) {
+        return res.status(404).json({ 
+          success: false, 
+          error: 'Artigo não encontrado' 
+        });
       }
 
-      res.json({
-        success: true,
-        data: articles,
-        meta: {
-          count: articles.length,
-          cached: !!cache.get(cacheKey)
-        }
-      });
-
+      res.json({ success: true, data: result.rows[0] });
     } catch (error) {
-      console.error('💥 Erro ao buscar artigos em destaque:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Erro interno do servidor',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      console.error('Erro ao buscar artigo:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Erro ao buscar artigo' 
+      });
+    }
+  }
+
+  // Listar categorias
+  async getCategories(req, res) {
+    try {
+      const query = `
+        SELECT categoria, COUNT(*) as total 
+        FROM blog_artigos 
+        WHERE status = 'publicado'
+        GROUP BY categoria 
+        ORDER BY total DESC
+      `;
+      
+      const result = await pool.query(query);
+      
+      res.json({ 
+        success: true, 
+        data: result.rows 
+      });
+    } catch (error) {
+      console.error('Erro ao buscar categorias:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Erro ao buscar categorias' 
+      });
+    }
+  }
+
+  // Criar artigo
+  async create(req, res) {
+    try {
+      const {
+        titulo, slug, categoria, autor, coautor,
+        resumo, content, status = 'publicado',
+        destaque = false, imagem_principal,
+        tempo_leitura = 5
+      } = req.body;
+
+      const query = `
+        INSERT INTO blog_artigos 
+        (titulo, slug, categoria, autor, coautor, resumo, content, 
+         status, destaque, imagem_principal, tempo_leitura)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        RETURNING *
+      `;
+      
+      const values = [
+        titulo, slug, categoria, autor, coautor,
+        resumo, content, status, destaque, 
+        imagem_principal, tempo_leitura
+      ];
+      
+      const result = await pool.query(query, values);
+      
+      // Limpar cache
+      cache.flushAll();
+      
+      res.status(201).json({ 
+        success: true, 
+        data: result.rows[0] 
+      });
+    } catch (error) {
+      console.error('Erro ao criar artigo:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Erro ao criar artigo' 
+      });
+    }
+  }
+
+  // Atualizar artigo
+  async update(req, res) {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      
+      const setClause = [];
+      const values = [];
+      let paramCount = 1;
+      
+      for (const [key, value] of Object.entries(updates)) {
+        setClause.push(`${key} = $${paramCount}`);
+        values.push(value);
+        paramCount++;
+      }
+      
+      values.push(id);
+      
+      const query = `
+        UPDATE blog_artigos 
+        SET ${setClause.join(', ')}, updated_at = NOW()
+        WHERE id = $${paramCount}
+        RETURNING *
+      `;
+      
+      const result = await pool.query(query, values);
+      
+      if (result.rows.length === 0) {
+        return res.status(404).json({ 
+          success: false, 
+          error: 'Artigo não encontrado' 
+        });
+      }
+
+      // Limpar cache
+      cache.flushAll();
+
+      res.json({ 
+        success: true, 
+        data: result.rows[0] 
+      });
+    } catch (error) {
+      console.error('Erro ao atualizar:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Erro ao atualizar artigo' 
+      });
+    }
+  }
+
+  // Deletar/Arquivar artigo
+  async delete(req, res) {
+    try {
+      const { id } = req.params;
+      
+      const query = `
+        UPDATE blog_artigos 
+        SET status = 'arquivado', updated_at = NOW()
+        WHERE id = $1
+        RETURNING *
+      `;
+      
+      const result = await pool.query(query, [id]);
+      
+      if (result.rows.length === 0) {
+        return res.status(404).json({ 
+          success: false, 
+          error: 'Artigo não encontrado' 
+        });
+      }
+
+      // Limpar cache
+      cache.flushAll();
+
+      res.json({ 
+        success: true, 
+        message: 'Artigo arquivado com sucesso',
+        data: result.rows[0] 
+      });
+    } catch (error) {
+      console.error('Erro ao arquivar:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Erro ao arquivar artigo' 
       });
     }
   }
 }
 
-module.exports = ArticleController;
+module.exports = new ArticleController();

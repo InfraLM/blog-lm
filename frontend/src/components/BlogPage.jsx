@@ -1,176 +1,183 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Header from './Header';
+import MainFeaturedCard from './MainFeaturedCard';
+import ArticleCard from './ArticleCard';
+import AlphabetSearch from './AlphabetSearch';
+import { Loader2, TrendingUp, Clock, BookOpen } from 'lucide-react';
 
 const BlogPage = () => {
-  const [articles, setArticles] = useState([]);
+  const [featuredArticle, setFeaturedArticle] = useState(null);
+  const [recentArticles, setRecentArticles] = useState([]);
+  const [searchResults, setSearchResults] = useState(null);
+  const [selectedLetter, setSelectedLetter] = useState('');
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
+  const [stats, setStats] = useState({ total: 0, categories: 0 });
+
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
   useEffect(() => {
-    fetchArticles();
+    fetchHomeData();
+    fetchStats();
   }, []);
 
-  const fetchArticles = async () => {
+  const fetchHomeData = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/articles');
-      const data = await response.json();
+      const featuredRes = await fetch(`${API_URL}/api/articles/featured-main`);
+      const featuredData = await featuredRes.json();
       
-      if (data.success && data.data) {
-        // Ordenar por data (mais recente primeiro)
-        const sortedArticles = data.data.sort((a, b) => 
-          new Date(b.data_criacao || b.data_atualizacao) - new Date(a.data_criacao || a.data_atualizacao)
-        );
-        setArticles(sortedArticles);
+      if (featuredData.success) {
+        setFeaturedArticle(featuredData.data);
+      }
+      
+      const excludeId = featuredData.data?.id;
+      const recentRes = await fetch(
+        `${API_URL}/api/articles/recent${excludeId ? `?excludeId=${excludeId}` : ''}`
+      );
+      const recentData = await recentRes.json();
+      
+      if (recentData.success) {
+        setRecentArticles(recentData.data);
       }
     } catch (error) {
-      console.error('Erro ao buscar artigos:', error);
-      // Dados de exemplo para demonstração quando não há backend
-      setArticles([
-        {
-          id: 1,
-          titulo: "Protocolo de Sepse em Medicina de Emergência",
-          categoria: "Medicina de Emergência",
-          autor: "Dr. João Silva",
-          resumo: "Protocolo completo para diagnóstico e tratamento de sepse em ambiente de emergência, baseado nas diretrizes mais recentes.",
-          data_criacao: new Date().toISOString(),
-          visualizacoes: 1250
-        },
-        {
-          id: 2,
-          titulo: "Urticária: Diagnóstico e Tratamento na Emergência",
-          categoria: "Dermatologia",
-          autor: "Dra. Maria Santos",
-          resumo: "Abordagem completa para diagnóstico e manejo da urticária em situações de emergência.",
-          data_criacao: new Date(Date.now() - 86400000).toISOString(),
-          visualizacoes: 890
-        },
-        {
-          id: 3,
-          titulo: "Lúpus Eritematoso Sistêmico: Diagnóstico e Manejo Clínico",
-          categoria: "Reumatologia",
-          autor: "Dr. Carlos Lima",
-          resumo: "Guia completo para diagnóstico e tratamento do lúpus eritematoso sistêmico.",
-          data_criacao: new Date(Date.now() - 172800000).toISOString(),
-          visualizacoes: 2100
-        }
-      ]);
+      console.error('Erro ao carregar dados:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleArticleClick = (articleId) => {
-    navigate(`/artigo/${articleId}`);
+  const fetchStats = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/categories`);
+      const data = await res.json();
+      if (data.success) {
+        const totalArticles = data.data.reduce((acc, cat) => acc + cat.total, 0);
+        setStats({
+          total: totalArticles,
+          categories: data.data.length
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao carregar estatísticas:', error);
+    }
   };
 
+  const handleSearch = (results, letter) => {
+    setSearchResults(results);
+    setSelectedLetter(letter);
+  };
+
+  const handleClearSearch = () => {
+    setSearchResults(null);
+    setSelectedLetter('');
+  };
+
+  if (loading) {
+    return (
+      <>
+        <Header />
+        <div className="flex justify-center items-center min-h-screen bg-gray-50">
+          <div className="text-center">
+            <Loader2 className="w-12 h-12 animate-spin text-red-600 mx-auto mb-4" />
+            <p className="text-gray-600">Carregando conteúdo...</p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <>
       <Header />
       
-      {/* Hero Section */}
-      <div style={{ backgroundColor: '#f03b40' }} className="text-white py-12">
-        <div className="container mx-auto px-4 text-center">
-          <h1 className="text-4xl lg:text-5xl font-semibold mb-4" style={{ fontFamily: 'Inter, sans-serif' }}>
-            Blog Médico
-          </h1>
-          <p className="text-xl opacity-90 max-w-2xl mx-auto">
-            Explore nossa biblioteca completa de conteúdos médicos baseados em evidências científicas
-          </p>
-        </div>
-      </div>
-
-      {/* Conteúdo Principal */}
-      <div className="container mx-auto px-4 py-12">
-        {loading ? (
-          <div className="text-center py-12">
-            <div className="text-xl text-gray-600">Carregando artigos...</div>
-          </div>
-        ) : (
-          <>
-            {/* Contador de artigos */}
-            <div className="mb-8 text-center">
-              <p className="text-lg text-gray-600">
-                {articles.length} {articles.length === 1 ? 'artigo encontrado' : 'artigos encontrados'}
+      <div className="bg-gray-50 min-h-screen">
+        <div className="bg-gradient-to-r from-red-600 to-red-700 text-white py-12">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-8">
+              <h1 className="text-4xl md:text-5xl font-bold mb-4">
+                Portal de Conhecimento Médico
+              </h1>
+              <p className="text-xl opacity-90">
+                Artigos, protocolos e discussões para profissionais da saúde
               </p>
             </div>
+            
+            <div className="grid grid-cols-3 gap-4 max-w-3xl mx-auto">
+              <div className="bg-white/10 backdrop-blur rounded-lg p-4 text-center">
+                <BookOpen className="w-8 h-8 mx-auto mb-2" />
+                <div className="text-3xl font-bold">{stats.total}</div>
+                <div className="text-sm opacity-90">Artigos</div>
+              </div>
+              <div className="bg-white/10 backdrop-blur rounded-lg p-4 text-center">
+                <TrendingUp className="w-8 h-8 mx-auto mb-2" />
+                <div className="text-3xl font-bold">{stats.categories}</div>
+                <div className="text-sm opacity-90">Categorias</div>
+              </div>
+              <div className="bg-white/10 backdrop-blur rounded-lg p-4 text-center">
+                <Clock className="w-8 h-8 mx-auto mb-2" />
+                <div className="text-3xl font-bold">24/7</div>
+                <div className="text-sm opacity-90">Disponível</div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-            {/* Grid de artigos */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {articles.map((article) => (
-                <div
-                  key={article.id}
-                  onClick={() => handleArticleClick(article.id)}
-                  className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer transform hover:-translate-y-2 h-full flex flex-col"
-                >
-                  {/* Header do Card */}
-                  <div className="p-6 pb-0">
-                    <div className="inline-block bg-gradient-to-r from-[#f03b40] to-red-600 text-white px-3 py-1 rounded-md text-sm font-semibold uppercase tracking-wide mb-4">
-                      {article.categoria || 'Medicina'}
-                    </div>
+        <div className="container mx-auto px-4 py-8">
+          <AlphabetSearch onSearch={handleSearch} onClear={handleClearSearch} />
+          
+          {searchResults ? (
+            <div>
+              <div className="mb-6 flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  Resultados para letra "{selectedLetter}"
+                </h2>
+                <span className="text-sm text-gray-500">
+                  {searchResults.length} resultado(s)
+                </span>
+              </div>
+              
+              {searchResults.length > 0 ? (
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {searchResults.map(article => (
+                    <ArticleCard key={article.id} article={article} />
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-white rounded-lg p-8 text-center">
+                  <p className="text-gray-600">
+                    Nenhum artigo encontrado para a letra "{selectedLetter}".
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              {featuredArticle && (
+                <MainFeaturedCard article={featuredArticle} />
+              )}
+              
+              {recentArticles.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-2xl font-bold text-gray-900">
+                      Artigos Recentes
+                    </h2>
+                    <a href="/artigos" className="text-red-600 hover:text-red-700 font-medium text-sm">
+                      Ver todos →
+                    </a>
                   </div>
-
-                  {/* Conteúdo do Card */}
-                  <div className="p-6 pt-0 flex-1 flex flex-col">
-                    <h3 
-                      className="text-xl font-semibold text-gray-900 mb-3 line-clamp-2 leading-tight"
-                      style={{ fontFamily: 'Inter, sans-serif' }}
-                    >
-                      {article.titulo}
-                    </h3>
-                    
-                    {article.resumo && (
-                      <p 
-                        className="text-gray-600 mb-4 flex-1 line-clamp-3"
-                        style={{ fontFamily: 'Spectral, serif', fontSize: '0.95rem', lineHeight: '1.6' }}
-                      >
-                        {article.resumo}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Footer do Card */}
-                  <div className="px-6 pb-6">
-                    <div className="border-t border-gray-100 pt-4">
-                      <div className="flex justify-between items-center text-sm text-gray-500">
-                        <div className="flex flex-col gap-1">
-                          {article.autor && (
-                            <span style={{ fontFamily: 'Inter, sans-serif' }}>
-                              Por {article.autor}
-                            </span>
-                          )}
-                          {article.data_criacao && (
-                            <span style={{ fontFamily: 'Inter, sans-serif' }}>
-                              {new Date(article.data_criacao).toLocaleDateString('pt-BR')}
-                            </span>
-                          )}
-                        </div>
-                        
-                        {article.visualizacoes && article.visualizacoes > 0 && (
-                          <span 
-                            className="text-gray-400 font-medium"
-                            style={{ fontFamily: 'Inter, sans-serif' }}
-                          >
-                            {article.visualizacoes} visualizações
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                  
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {recentArticles.map(article => (
+                      <ArticleCard key={article.id} article={article} />
+                    ))}
                   </div>
                 </div>
-              ))}
-            </div>
-
-            {/* Mensagem quando não há artigos */}
-            {articles.length === 0 && (
-              <div className="text-center py-12">
-                <div className="text-xl text-gray-600 mb-4">Nenhum artigo encontrado</div>
-              </div>
-            )}
-          </>
-        )}
+              )}
+            </>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 
