@@ -1,13 +1,17 @@
 import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Heart } from 'lucide-react';
 
 const Header = () => {
+  const navigate = useNavigate();
+
   const menuItems = [
-    { label: "Início" },
-    { label: "Cursos" },
-    { label: "Newsletter" },
-    { label: "Produtos" },
-    { label: "Sobre Nós" }
+    { label: "Início", path: "/" },
+    { label: "Cursos", path: "#" },
+    { label: "Blog", path: "/blog" },
+    { label: "Newsletter", path: "/artigos" },
+    { label: "Produtos", path: "#" },
+    { label: "Sobre Nós", path: "#" }
   ];
 
   return (
@@ -17,9 +21,11 @@ const Header = () => {
         <div className="container mx-auto px-4 py-4">
           {/* Logo placeholder */}
           <div className="flex justify-center mb-6">
-            <div className="w-48 h-16 bg-gradient-to-r from-[#f03b40] to-red-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-xl">LOGO</span>
-            </div>
+            <Link to="/" className="block">
+              <div className="w-48 h-16 bg-gradient-to-r from-[#f03b40] to-red-600 rounded-lg flex items-center justify-center hover:shadow-lg transition-shadow duration-300">
+                <span className="text-white font-bold text-xl">LOGO</span>
+              </div>
+            </Link>
           </div>
 
           {/* Centered Navigation */}
@@ -27,13 +33,24 @@ const Header = () => {
             <ul className="flex justify-center gap-8 lg:gap-12">
               {menuItems.map((item, index) => (
                 <li key={index}>
-                  <a 
-                    href="#" 
-                    className="text-gray-700 hover:text-[#f03b40] font-medium transition-colors duration-300 capitalize relative group text-lg"
-                  >
-                    {item.label}
-                    <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[#f03b40] transition-all duration-300 group-hover:w-full"></span>
-                  </a>
+                  {item.path === "#" ? (
+                    <a 
+                      href="#" 
+                      className="text-gray-700 hover:text-[#f03b40] font-medium transition-colors duration-300 capitalize relative group text-lg"
+                      onClick={(e) => e.preventDefault()}
+                    >
+                      {item.label}
+                      <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[#f03b40] transition-all duration-300 group-hover:w-full"></span>
+                    </a>
+                  ) : (
+                    <Link 
+                      to={item.path}
+                      className="text-gray-700 hover:text-[#f03b40] font-medium transition-colors duration-300 capitalize relative group text-lg"
+                    >
+                      {item.label}
+                      <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[#f03b40] transition-all duration-300 group-hover:w-full"></span>
+                    </Link>
+                  )}
                 </li>
               ))}
             </ul>

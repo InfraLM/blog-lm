@@ -7,6 +7,8 @@ import MedicalContentPage from './components/MedicalContentPage';
 import ArticleHeader from './components/ArticleHeader';
 import ArticleNav from './components/ArticleNav';
 import ArticleBody from './components/ArticleBody';
+import BlogPage from './components/BlogPage';
+import Footer from './components/Footer';
 import './App.css';
 
 // Componente para a página dinâmica de artigo
@@ -68,37 +70,7 @@ function HomePage() {
     <div className="min-h-screen bg-gray-50">
       <Header />
       <MainLayout />
-      
-      <section className="container mx-auto px-4 py-8 text-center space-y-4">
-        <button
-          onClick={() => setCurrentView('medical')}
-          className="bg-red-500 hover:bg-red-600 text-white font-semibold px-8 py-4 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-1 text-lg mr-4"
-        >
-          Ver Página Médica: AVC Isquêmico
-        </button>
-        
-        {/* Botões para acessar artigos por ID */}
-        <div className="mt-4 space-x-4">
-          <button
-            onClick={() => navigate('/artigo/1')}
-            className="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-6 py-3 rounded-lg transition-colors"
-          >
-            Ver Artigo 1
-          </button>
-          <button
-            onClick={() => navigate('/artigo/2')}
-            className="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-6 py-3 rounded-lg transition-colors"
-          >
-            Ver Artigo 2
-          </button>
-          <button
-            onClick={() => navigate('/artigo/3')}
-            className="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-6 py-3 rounded-lg transition-colors"
-          >
-            Ver Artigo 3
-          </button>
-        </div>
-      </section>
+      <Footer />
     </div>
   );
 
@@ -156,6 +128,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/blog" element={<BlogPage />} />
         <Route path="/artigo/:id" element={<ArticlePage />} />
         <Route path="/post/:slug" element={<ArticlePage />} />
       </Routes>
