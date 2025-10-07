@@ -239,7 +239,7 @@ class ArticleController {
 
       res.json({ success: true, data: result.rows[0] });
     } catch (error) {
-      console.error('Erro ao buscar artigo:', error);
+      console.error('Erro ao buscar artigo por ID:', error);
       res.status(500).json({ 
         success: false, 
         error: 'Erro ao buscar artigo' 

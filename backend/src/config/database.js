@@ -1,3 +1,29 @@
+require('dotenv').config();
+const { Pool } = require('pg');
+
+// Configuração do pool de conexões PostgreSQL
+const pool = new Pool({
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+  max: 20, // máximo de conexões no pool
+  idleTimeoutMillis: 30000, // tempo limite para conexões inativas
+  connectionTimeoutMillis: 2000, // tempo limite para estabelecer conexão
+});
+
+// Teste de conexão
+pool.on('connect', () => {
+  console.log('✅ Conectado ao banco PostgreSQL');
+});
+
+pool.on('error', (err) => {
+  console.error('❌ Erro no pool de conexões:', err);
+  process.exit(-1);
+});
+
 // Função para criar/atualizar estrutura da tabela
 const updateDatabaseStructure = async () => {
   const client = await pool.connect();

@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const compression = require('compression');
 const helmet = require('helmet');
-const articlesRouter = require('./articles');
+const articlesRouter = require('./routes/articles');
 
 const app = express();
 const PORT = process.env.PORT || 3001;

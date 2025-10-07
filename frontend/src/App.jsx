@@ -24,9 +24,15 @@ function ArticlePage() {
 
   const fetchArticle = async () => {
     try {
-      const url = id 
-        ? `http://localhost:3001/api/articles/${id}`
-        : `http://localhost:3001/api/articles/${slug}`;
+      let url;
+      
+      // Se tem slug, usar rota de slug
+      if (slug) {
+        url = `http://localhost:3001/api/articles/slug/${slug}`;
+      } else if (id) {
+        // Se tem ID, usar rota de ID
+        url = `http://localhost:3001/api/articles/${id}`;
+      }
       
       const response = await fetch(url);
       const data = await response.json();
@@ -56,7 +62,7 @@ function ArticlePage() {
       <ArticleNav 
         onNavigateBack={() => navigate('/')}
       />
-      <ArticleBody content={article.content || article.conteudo_completo} />
+      <ArticleBody content={article.content} />
     </div>
   );
 }
@@ -130,6 +136,7 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/blog" element={<BlogPage />} />
         <Route path="/artigo/:id" element={<ArticlePage />} />
+        <Route path="/artigo/:slug" element={<ArticlePage />} />
         <Route path="/post/:slug" element={<ArticlePage />} />
       </Routes>
     </BrowserRouter>

@@ -1,5 +1,4 @@
 import React, { useEffect } from 'react';
-import DOMPurify from 'dompurify';
 
 const ArticleContent = ({ content }) => {
   useEffect(() => {
@@ -31,13 +30,34 @@ const ArticleContent = ({ content }) => {
     }
   }, [content]);
 
-  const cleanHTML = DOMPurify.sanitize(content, {
-    ALLOWED_TAGS: [
-      'h1', 'h2', 'h3', 'p', 'br', 'strong', 'em', 'u', 
-      'img', 'div', 'span'
-    ],
-    ALLOWED_ATTR: ['src', 'alt', 'class', 'id']
-  });
+  // Função simples de sanitização sem dependência externa
+  const sanitizeHTML = (html) => {
+    if (!html) return '';
+    
+    // Lista de tags permitidas
+    const allowedTags = [
+      'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+      'p', 'br', 'strong', 'em', 'u', 'b', 'i',
+      'img', 'div', 'span', 'ul', 'ol', 'li',
+      'blockquote', 'code', 'pre'
+    ];
+    
+    // Lista de atributos permitidos
+    const allowedAttributes = ['src', 'alt', 'class', 'id', 'href', 'target'];
+    
+    // Remover scripts e outros elementos perigosos
+    let cleanHTML = html
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
+      .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
+      .replace(/<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>/gi, '')
+      .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '') // Remove event handlers
+      .replace(/javascript:/gi, ''); // Remove javascript: URLs
+    
+    return cleanHTML;
+  };
+
+  const cleanHTML = sanitizeHTML(content);
   
   return (
     <div className="max-w-none">

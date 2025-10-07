@@ -2,14 +2,12 @@ import React, { useState, useEffect } from 'react';
 import Header from './Header';
 import MainFeaturedCard from './MainFeaturedCard';
 import ArticleCard from './ArticleCard';
-import AlphabetSearch from './AlphabetSearch';
-import { Loader2, TrendingUp, Clock, BookOpen } from 'lucide-react';
+import AllArticlesList from './AllArticlesList';
+import { Loader2, TrendingUp, BookOpen } from 'lucide-react';
 
 const BlogPage = () => {
   const [featuredArticle, setFeaturedArticle] = useState(null);
   const [recentArticles, setRecentArticles] = useState([]);
-  const [searchResults, setSearchResults] = useState(null);
-  const [selectedLetter, setSelectedLetter] = useState('');
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ total: 0, categories: 0 });
 
@@ -22,16 +20,18 @@ const BlogPage = () => {
 
   const fetchHomeData = async () => {
     try {
+      // Buscar artigo em destaque
       const featuredRes = await fetch(`${API_URL}/api/articles/featured-main`);
       const featuredData = await featuredRes.json();
       
-      if (featuredData.success) {
+      if (featuredData.success && featuredData.data) {
         setFeaturedArticle(featuredData.data);
       }
       
+      // Buscar artigos recentes (excluindo o destaque)
       const excludeId = featuredData.data?.id;
       const recentRes = await fetch(
-        `${API_URL}/api/articles/recent${excludeId ? `?excludeId=${excludeId}` : ''}`
+        `${API_URL}/api/articles/recent${excludeId ? `?excludeId=${excludeId}&limit=3` : '?limit=3'}`
       );
       const recentData = await recentRes.json();
       
@@ -47,13 +47,18 @@ const BlogPage = () => {
 
   const fetchStats = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/categories`);
-      const data = await res.json();
-      if (data.success) {
-        const totalArticles = data.data.reduce((acc, cat) => acc + cat.total, 0);
+      // Buscar contagem real de artigos
+      const articlesRes = await fetch(`${API_URL}/api/articles?limit=1`);
+      const articlesData = await articlesRes.json();
+      
+      // Buscar categorias
+      const categoriesRes = await fetch(`${API_URL}/api/categories`);
+      const categoriesData = await categoriesRes.json();
+      
+      if (articlesData.success && categoriesData.success) {
         setStats({
-          total: totalArticles,
-          categories: data.data.length
+          total: articlesData.total || 0, // Total real do banco
+          categories: categoriesData.data?.length || 0
         });
       }
     } catch (error) {
@@ -61,15 +66,11 @@ const BlogPage = () => {
     }
   };
 
-  const handleSearch = (results, letter) => {
-    setSearchResults(results);
-    setSelectedLetter(letter);
-  };
-
-  const handleClearSearch = () => {
-    setSearchResults(null);
-    setSelectedLetter('');
-  };
+  // IDs para excluir da listagem completa (destaque + 3 recentes)
+  const excludeIds = [
+    ...(featuredArticle ? [featuredArticle.id] : []),
+    ...recentArticles.map(article => article.id)
+  ];
 
   if (loading) {
     return (
@@ -90,6 +91,7 @@ const BlogPage = () => {
       <Header />
       
       <div className="bg-gray-50 min-h-screen">
+        {/* Hero Section com estatísticas */}
         <div className="bg-gradient-to-r from-red-600 to-red-700 text-white py-12">
           <div className="container mx-auto px-4">
             <div className="text-center mb-8">
@@ -101,80 +103,54 @@ const BlogPage = () => {
               </p>
             </div>
             
-            <div className="grid grid-cols-3 gap-4 max-w-3xl mx-auto">
-              <div className="bg-white/10 backdrop-blur rounded-lg p-4 text-center">
-                <BookOpen className="w-8 h-8 mx-auto mb-2" />
-                <div className="text-3xl font-bold">{stats.total}</div>
-                <div className="text-sm opacity-90">Artigos</div>
+            {/* Apenas 2 cards de estatísticas */}
+            <div className="grid grid-cols-2 gap-6 max-w-2xl mx-auto">
+              <div className="bg-white/10 backdrop-blur rounded-lg p-6 text-center">
+                <BookOpen className="w-10 h-10 mx-auto mb-3" />
+                <div className="text-4xl font-bold">{stats.total}</div>
+                <div className="text-base opacity-90">Artigos Publicados</div>
               </div>
-              <div className="bg-white/10 backdrop-blur rounded-lg p-4 text-center">
-                <TrendingUp className="w-8 h-8 mx-auto mb-2" />
-                <div className="text-3xl font-bold">{stats.categories}</div>
-                <div className="text-sm opacity-90">Categorias</div>
-              </div>
-              <div className="bg-white/10 backdrop-blur rounded-lg p-4 text-center">
-                <Clock className="w-8 h-8 mx-auto mb-2" />
-                <div className="text-3xl font-bold">24/7</div>
-                <div className="text-sm opacity-90">Disponível</div>
+              <div className="bg-white/10 backdrop-blur rounded-lg p-6 text-center">
+                <TrendingUp className="w-10 h-10 mx-auto mb-3" />
+                <div className="text-4xl font-bold">{stats.categories}</div>
+                <div className="text-base opacity-90">Especialidades Médicas</div>
               </div>
             </div>
           </div>
         </div>
 
         <div className="container mx-auto px-4 py-8">
-          <AlphabetSearch onSearch={handleSearch} onClear={handleClearSearch} />
+          {/* Artigo em Destaque */}
+          {featuredArticle && (
+            <div className="mb-12">
+              <MainFeaturedCard article={featuredArticle} />
+            </div>
+          )}
           
-          {searchResults ? (
-            <div>
-              <div className="mb-6 flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-gray-900">
-                  Resultados para letra "{selectedLetter}"
-                </h2>
-                <span className="text-sm text-gray-500">
-                  {searchResults.length} resultado(s)
-                </span>
-              </div>
-              
-              {searchResults.length > 0 ? (
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {searchResults.map(article => (
-                    <ArticleCard key={article.id} article={article} />
-                  ))}
-                </div>
-              ) : (
-                <div className="bg-white rounded-lg p-8 text-center">
+          {/* Artigos Recentes */}
+          {recentArticles.length > 0 && (
+            <div className="mb-12">
+              <div className="flex items-center justify-between mb-8">
+                <div>
+                  <h2 className="text-3xl font-bold text-gray-900 mb-2">
+                    Artigos Recentes
+                  </h2>
                   <p className="text-gray-600">
-                    Nenhum artigo encontrado para a letra "{selectedLetter}".
+                    Últimas publicações da nossa equipe médica
                   </p>
                 </div>
-              )}
-            </div>
-          ) : (
-            <>
-              {featuredArticle && (
-                <MainFeaturedCard article={featuredArticle} />
-              )}
+              </div>
               
-              {recentArticles.length > 0 && (
-                <div>
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-2xl font-bold text-gray-900">
-                      Artigos Recentes
-                    </h2>
-                    <a href="/artigos" className="text-red-600 hover:text-red-700 font-medium text-sm">
-                      Ver todos →
-                    </a>
-                  </div>
-                  
-                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {recentArticles.map(article => (
-                      <ArticleCard key={article.id} article={article} />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {recentArticles.map(article => (
+                  <ArticleCard key={article.id} article={article} />
+                ))}
+              </div>
+            </div>
           )}
+
+          {/* Listagem Completa de Todos os Outros Artigos */}
+          <AllArticlesList excludeIds={excludeIds} />
         </div>
       </div>
     </>
