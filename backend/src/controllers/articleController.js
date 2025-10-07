@@ -1,407 +1,542 @@
-const pool = require('../config/database').pool;
-const NodeCache = require('node-cache');
+const { pool } = require('../config/database');
 
-// Cache com TTL de 5 minutos
-const cache = new NodeCache({ stdTTL: 300 });
+// Função auxiliar para executar queries com retry
+const executeQuery = async (query, params = []) => {
+  let client;
+  try {
+    client = await pool.connect();
+    const result = await client.query(query, params);
+    return result;
+  } finally {
+    if (client) client.release();
+  }
+};
 
-class ArticleController {
-  // Listar todos os artigos com filtros
-  async getAll(req, res) {
-    try {
-      const { 
-        categoria, 
-        status = 'publicado', 
-        limit = 10, 
-        offset = 0,
-        destaque,
-        search 
-      } = req.query;
+// Buscar todos os artigos com paginação e filtros
+const getAll = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      categoria,
+      sort = 'recent',
+      excludeIds
+    } = req.query;
 
-      let query = 'SELECT * FROM blog_artigos WHERE 1=1';
-      const params = [];
-      let paramCount = 0;
+    const offset = (page - 1) * limit;
+    let whereClause = '';
+    let orderClause = '';
+    const queryParams = [];
+    let paramIndex = 1;
 
-      if (status) {
-        params.push(status);
-        query += ` AND status = $${++paramCount}`;
+    // Filtro por categoria
+    if (categoria) {
+      whereClause += ` AND categoria = $${paramIndex}`;
+      queryParams.push(categoria);
+      paramIndex++;
+    }
+
+    // Excluir IDs específicos
+    if (excludeIds) {
+      const idsArray = excludeIds.split(',').map(id => parseInt(id)).filter(id => !isNaN(id));
+      if (idsArray.length > 0) {
+        whereClause += ` AND id NOT IN (${idsArray.map(() => `$${paramIndex++}`).join(',')})`;
+        queryParams.push(...idsArray);
       }
+    }
 
-      if (categoria) {
-        params.push(categoria);
-        query += ` AND categoria = $${++paramCount}`;
-      }
+    // Ordenação
+    switch (sort) {
+      case 'oldest':
+        orderClause = 'ORDER BY created_at ASC';
+        break;
+      case 'title':
+        orderClause = 'ORDER BY titulo ASC';
+        break;
+      case 'views':
+        orderClause = 'ORDER BY visualizacoes DESC, created_at DESC';
+        break;
+      case 'recent':
+      default:
+        orderClause = 'ORDER BY created_at DESC';
+        break;
+    }
 
-      if (destaque !== undefined) {
-        params.push(destaque === 'true');
-        query += ` AND destaque = $${++paramCount}`;
-      }
+    // Query para contar total
+    const countQuery = `
+      SELECT COUNT(*) as total 
+      FROM blog_artigos 
+      WHERE 1=1 ${whereClause}
+    `;
 
-      if (search) {
-        params.push(`%${search}%`);
-        query += ` AND (titulo ILIKE $${++paramCount} OR resumo ILIKE $${paramCount})`;
-      }
+    // Query para buscar artigos
+    const articlesQuery = `
+      SELECT 
+        id, titulo, resumo, categoria, autor, coautor,
+        imagem_principal, tempo_leitura, visualizacoes,
+        destaque, created_at, updated_at,
+        CASE 
+          WHEN LENGTH(titulo) > 50 THEN LOWER(REPLACE(REPLACE(REPLACE(titulo, ' ', '-'), 'ç', 'c'), 'ã', 'a'))
+          ELSE LOWER(REPLACE(titulo, ' ', '-'))
+        END as slug
+      FROM blog_artigos 
+      WHERE 1=1 ${whereClause}
+      ${orderClause}
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
 
-      query += ` ORDER BY created_at DESC`;
-      params.push(limit);
-      query += ` LIMIT $${++paramCount}`;
-      params.push(offset);
-      query += ` OFFSET $${++paramCount}`;
+    queryParams.push(parseInt(limit), parseInt(offset));
 
-      const result = await pool.query(query, params);
-      
+    // Executar queries
+    const [countResult, articlesResult] = await Promise.all([
+      executeQuery(countQuery, queryParams.slice(0, -2)),
+      executeQuery(articlesQuery, queryParams)
+    ]);
+
+    const total = parseInt(countResult.rows[0].total);
+    const articles = articlesResult.rows;
+
+    res.json({
+      success: true,
+      data: articles,
+      total,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      totalPages: Math.ceil(total / limit)
+    });
+
+  } catch (error) {
+    console.error('Erro ao buscar artigos:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor'
+    });
+  }
+};
+
+// Buscar artigo em destaque principal
+const getFeaturedMain = async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        id, titulo, resumo, categoria, autor, coautor,
+        imagem_principal, tempo_leitura, visualizacoes,
+        destaque, created_at, updated_at,
+        CASE 
+          WHEN LENGTH(titulo) > 50 THEN LOWER(REPLACE(REPLACE(REPLACE(titulo, ' ', '-'), 'ç', 'c'), 'ã', 'a'))
+          ELSE LOWER(REPLACE(titulo, ' ', '-'))
+        END as slug
+      FROM blog_artigos 
+      WHERE destaque = true 
+      ORDER BY created_at DESC 
+      LIMIT 1
+    `;
+
+    const result = await executeQuery(query);
+
+    if (result.rows.length > 0) {
       res.json({
         success: true,
-        data: result.rows,
-        total: result.rowCount
+        data: result.rows[0]
       });
-    } catch (error) {
-      console.error('Erro ao buscar artigos:', error);
-      res.status(500).json({ 
-        success: false, 
-        error: 'Erro ao buscar artigos' 
-      });
-    }
-  }
-
-  // Buscar artigo em destaque principal
-  async getFeaturedMain(req, res) {
-    try {
-      const cacheKey = 'featured-main';
-      const cachedData = cache.get(cacheKey);
-      
-      if (cachedData) {
-        return res.json({ success: true, data: cachedData });
-      }
-
-      const query = `
-        SELECT id, titulo, slug, categoria, autor, coautor, resumo, 
-               imagem_principal, created_at, tempo_leitura, content
+    } else {
+      // Se não há destaque, pegar o mais recente
+      const fallbackQuery = `
+        SELECT 
+          id, titulo, resumo, categoria, autor, coautor,
+          imagem_principal, tempo_leitura, visualizacoes,
+          destaque, created_at, updated_at,
+          CASE 
+            WHEN LENGTH(titulo) > 50 THEN LOWER(REPLACE(REPLACE(REPLACE(titulo, ' ', '-'), 'ç', 'c'), 'ã', 'a'))
+            ELSE LOWER(REPLACE(titulo, ' ', '-'))
+          END as slug
         FROM blog_artigos 
-        WHERE destaque = true AND status = 'publicado'
-        ORDER BY created_at DESC
+        ORDER BY created_at DESC 
         LIMIT 1
       `;
-      
-      const result = await pool.query(query);
-      const data = result.rows[0] || null;
-      
-      cache.set(cacheKey, data);
-      res.json({ success: true, data });
-    } catch (error) {
-      console.error('Erro ao buscar destaque:', error);
-      res.status(500).json({ 
-        success: false, 
-        error: 'Erro ao buscar artigo em destaque' 
+
+      const fallbackResult = await executeQuery(fallbackQuery);
+
+      res.json({
+        success: true,
+        data: fallbackResult.rows[0] || null
       });
     }
+
+  } catch (error) {
+    console.error('Erro ao buscar artigo em destaque:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor'
+    });
   }
+};
 
-  // Buscar últimos 3 artigos
-  async getRecent(req, res) {
-    try {
-      const { excludeId } = req.query;
-      const cacheKey = `recent-${excludeId || 'all'}`;
-      const cachedData = cache.get(cacheKey);
-      
-      if (cachedData) {
-        return res.json({ success: true, data: cachedData });
-      }
+// Buscar artigos recentes
+const getRecent = async (req, res) => {
+  try {
+    const { limit = 3, excludeId } = req.query;
+    let whereClause = '';
+    const queryParams = [];
 
-      let query = `
-        SELECT id, titulo, slug, categoria, autor, coautor, resumo, 
-               imagem_principal, created_at, tempo_leitura
-        FROM blog_artigos 
-        WHERE status = 'publicado'
-      `;
-      
-      const params = [];
-      if (excludeId) {
-        params.push(excludeId);
-        query += ` AND id != $1`;
-      }
-      
-      query += ` ORDER BY created_at DESC LIMIT 3`;
-      
-      const result = await pool.query(query, params);
-      
-      cache.set(cacheKey, result.rows);
-      res.json({ success: true, data: result.rows });
-    } catch (error) {
-      console.error('Erro ao buscar recentes:', error);
-      res.status(500).json({ 
-        success: false, 
-        error: 'Erro ao buscar artigos recentes' 
+    if (excludeId) {
+      whereClause = 'WHERE id != $1';
+      queryParams.push(parseInt(excludeId));
+    }
+
+    const query = `
+      SELECT 
+        id, titulo, resumo, categoria, autor, coautor,
+        imagem_principal, tempo_leitura, visualizacoes,
+        destaque, created_at, updated_at,
+        CASE 
+          WHEN LENGTH(titulo) > 50 THEN LOWER(REPLACE(REPLACE(REPLACE(titulo, ' ', '-'), 'ç', 'c'), 'ã', 'a'))
+          ELSE LOWER(REPLACE(titulo, ' ', '-'))
+        END as slug
+      FROM blog_artigos 
+      ${whereClause}
+      ORDER BY created_at DESC 
+      LIMIT $${queryParams.length + 1}
+    `;
+
+    queryParams.push(parseInt(limit));
+
+    const result = await executeQuery(query, queryParams);
+
+    res.json({
+      success: true,
+      data: result.rows
+    });
+
+  } catch (error) {
+    console.error('Erro ao buscar artigos recentes:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor'
+    });
+  }
+};
+
+// Buscar por letra (manter para compatibilidade)
+const searchByLetter = async (req, res) => {
+  try {
+    const { letter } = req.params;
+
+    if (!letter || letter.length !== 1) {
+      return res.status(400).json({
+        success: false,
+        error: 'Letra inválida'
       });
     }
+
+    const query = `
+      SELECT 
+        id, titulo, resumo, categoria, autor, coautor,
+        imagem_principal, tempo_leitura, visualizacoes,
+        destaque, created_at, updated_at,
+        CASE 
+          WHEN LENGTH(titulo) > 50 THEN LOWER(REPLACE(REPLACE(REPLACE(titulo, ' ', '-'), 'ç', 'c'), 'ã', 'a'))
+          ELSE LOWER(REPLACE(titulo, ' ', '-'))
+        END as slug
+      FROM blog_artigos 
+      WHERE UPPER(LEFT(titulo, 1)) = UPPER($1)
+      ORDER BY titulo ASC
+    `;
+
+    const result = await executeQuery(query, [letter]);
+
+    res.json({
+      success: true,
+      data: result.rows
+    });
+
+  } catch (error) {
+    console.error('Erro ao buscar por letra:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor'
+    });
   }
+};
 
-  // Buscar por letra inicial
-  async searchByLetter(req, res) {
-    try {
-      const { letter } = req.params;
-      
-      if (!letter || letter.length !== 1) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'Letra inválida' 
-        });
-      }
+// Buscar por slug
+const getBySlug = async (req, res) => {
+  try {
+    const { slug } = req.params;
 
-      const query = `
-        SELECT DISTINCT id, titulo, slug, categoria, autor, coautor, 
-               resumo, imagem_principal, created_at, tempo_leitura
-        FROM blog_artigos
-        WHERE status = 'publicado'
-          AND (
-            LOWER(categoria) LIKE LOWER($1) 
-            OR EXISTS (
-              SELECT 1 FROM unnest(string_to_array(LOWER(titulo), ' ')) AS word
-              WHERE word LIKE LOWER($1)
-            )
-          )
-        ORDER BY created_at DESC
-        LIMIT 20
-      `;
-      
-      const result = await pool.query(query, [`${letter}%`]);
-      
-      res.json({ 
-        success: true, 
-        data: result.rows,
-        letter: letter.toUpperCase()
-      });
-    } catch (error) {
-      console.error('Erro na busca por letra:', error);
-      res.status(500).json({ 
-        success: false, 
-        error: 'Erro na busca por letra' 
-      });
-    }
-  }
+    const query = `
+      SELECT 
+        id, titulo, resumo, categoria, autor, coautor,
+        imagem_principal, tempo_leitura, visualizacoes,
+        destaque, created_at, updated_at, conteudo_completo
+      FROM blog_artigos 
+      WHERE LOWER(REPLACE(titulo, ' ', '-')) = LOWER($1)
+      LIMIT 1
+    `;
 
-  // Buscar por slug
-  async getBySlug(req, res) {
-    try {
-      const { slug } = req.params;
-      const cacheKey = `article-${slug}`;
-      const cachedData = cache.get(cacheKey);
-      
-      if (cachedData) {
-        return res.json({ success: true, data: cachedData });
-      }
+    const result = await executeQuery(query, [slug]);
 
-      const query = `
-        SELECT * FROM blog_artigos 
-        WHERE slug = $1 AND status = 'publicado'
-        LIMIT 1
-      `;
-      
-      const result = await pool.query(query, [slug]);
-      
-      if (result.rows.length === 0) {
-        return res.status(404).json({ 
-          success: false, 
-          error: 'Artigo não encontrado' 
-        });
-      }
-
+    if (result.rows.length > 0) {
       // Incrementar visualizações
-      await pool.query(
-        'UPDATE blog_artigos SET visualizacoes = COALESCE(visualizacoes, 0) + 1 WHERE id = $1',
-        [result.rows[0].id]
-      );
-
-      cache.set(cacheKey, result.rows[0]);
-      res.json({ success: true, data: result.rows[0] });
-    } catch (error) {
-      console.error('Erro ao buscar artigo:', error);
-      res.status(500).json({ 
-        success: false, 
-        error: 'Erro ao buscar artigo' 
-      });
-    }
-  }
-
-  // Buscar por ID
-  async getById(req, res) {
-    try {
-      const { id } = req.params;
-      
-      const query = 'SELECT * FROM blog_artigos WHERE id = $1';
-      const result = await pool.query(query, [id]);
-      
-      if (result.rows.length === 0) {
-        return res.status(404).json({ 
-          success: false, 
-          error: 'Artigo não encontrado' 
-        });
-      }
-
-      res.json({ success: true, data: result.rows[0] });
-    } catch (error) {
-      console.error('Erro ao buscar artigo por ID:', error);
-      res.status(500).json({ 
-        success: false, 
-        error: 'Erro ao buscar artigo' 
-      });
-    }
-  }
-
-  // Listar categorias
-  async getCategories(req, res) {
-    try {
-      const query = `
-        SELECT categoria, COUNT(*) as total 
-        FROM blog_artigos 
-        WHERE status = 'publicado'
-        GROUP BY categoria 
-        ORDER BY total DESC
-      `;
-      
-      const result = await pool.query(query);
-      
-      res.json({ 
-        success: true, 
-        data: result.rows 
-      });
-    } catch (error) {
-      console.error('Erro ao buscar categorias:', error);
-      res.status(500).json({ 
-        success: false, 
-        error: 'Erro ao buscar categorias' 
-      });
-    }
-  }
-
-  // Criar artigo
-  async create(req, res) {
-    try {
-      const {
-        titulo, slug, categoria, autor, coautor,
-        resumo, content, status = 'publicado',
-        destaque = false, imagem_principal,
-        tempo_leitura = 5
-      } = req.body;
-
-      const query = `
-        INSERT INTO blog_artigos 
-        (titulo, slug, categoria, autor, coautor, resumo, content, 
-         status, destaque, imagem_principal, tempo_leitura)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-        RETURNING *
-      `;
-      
-      const values = [
-        titulo, slug, categoria, autor, coautor,
-        resumo, content, status, destaque, 
-        imagem_principal, tempo_leitura
-      ];
-      
-      const result = await pool.query(query, values);
-      
-      // Limpar cache
-      cache.flushAll();
-      
-      res.status(201).json({ 
-        success: true, 
-        data: result.rows[0] 
-      });
-    } catch (error) {
-      console.error('Erro ao criar artigo:', error);
-      res.status(500).json({ 
-        success: false, 
-        error: 'Erro ao criar artigo' 
-      });
-    }
-  }
-
-  // Atualizar artigo
-  async update(req, res) {
-    try {
-      const { id } = req.params;
-      const updates = req.body;
-      
-      const setClause = [];
-      const values = [];
-      let paramCount = 1;
-      
-      for (const [key, value] of Object.entries(updates)) {
-        setClause.push(`${key} = $${paramCount}`);
-        values.push(value);
-        paramCount++;
-      }
-      
-      values.push(id);
-      
-      const query = `
+      const updateQuery = `
         UPDATE blog_artigos 
-        SET ${setClause.join(', ')}, updated_at = NOW()
-        WHERE id = $${paramCount}
-        RETURNING *
-      `;
-      
-      const result = await pool.query(query, values);
-      
-      if (result.rows.length === 0) {
-        return res.status(404).json({ 
-          success: false, 
-          error: 'Artigo não encontrado' 
-        });
-      }
-
-      // Limpar cache
-      cache.flushAll();
-
-      res.json({ 
-        success: true, 
-        data: result.rows[0] 
-      });
-    } catch (error) {
-      console.error('Erro ao atualizar:', error);
-      res.status(500).json({ 
-        success: false, 
-        error: 'Erro ao atualizar artigo' 
-      });
-    }
-  }
-
-  // Deletar/Arquivar artigo
-  async delete(req, res) {
-    try {
-      const { id } = req.params;
-      
-      const query = `
-        UPDATE blog_artigos 
-        SET status = 'arquivado', updated_at = NOW()
+        SET visualizacoes = COALESCE(visualizacoes, 0) + 1 
         WHERE id = $1
-        RETURNING *
       `;
-      
-      const result = await pool.query(query, [id]);
-      
-      if (result.rows.length === 0) {
-        return res.status(404).json({ 
-          success: false, 
-          error: 'Artigo não encontrado' 
-        });
-      }
+      await executeQuery(updateQuery, [result.rows[0].id]);
 
-      // Limpar cache
-      cache.flushAll();
-
-      res.json({ 
-        success: true, 
-        message: 'Artigo arquivado com sucesso',
-        data: result.rows[0] 
+      res.json({
+        success: true,
+        data: result.rows[0]
       });
-    } catch (error) {
-      console.error('Erro ao arquivar:', error);
-      res.status(500).json({ 
-        success: false, 
-        error: 'Erro ao arquivar artigo' 
+    } else {
+      res.status(404).json({
+        success: false,
+        error: 'Artigo não encontrado'
       });
     }
-  }
-}
 
-module.exports = new ArticleController();
+  } catch (error) {
+    console.error('Erro ao buscar artigo por slug:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor'
+    });
+  }
+};
+
+// Buscar por ID
+const getById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const query = `
+      SELECT 
+        id, titulo, resumo, categoria, autor, coautor,
+        imagem_principal, tempo_leitura, visualizacoes,
+        destaque, created_at, updated_at, conteudo_completo
+      FROM blog_artigos 
+      WHERE id = $1
+    `;
+
+    const result = await executeQuery(query, [parseInt(id)]);
+
+    if (result.rows.length > 0) {
+      // Incrementar visualizações
+      const updateQuery = `
+        UPDATE blog_artigos 
+        SET visualizacoes = COALESCE(visualizacoes, 0) + 1 
+        WHERE id = $1
+      `;
+      await executeQuery(updateQuery, [parseInt(id)]);
+
+      res.json({
+        success: true,
+        data: result.rows[0]
+      });
+    } else {
+      res.status(404).json({
+        success: false,
+        error: 'Artigo não encontrado'
+      });
+    }
+
+  } catch (error) {
+    console.error('Erro ao buscar artigo por ID:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor'
+    });
+  }
+};
+
+// Buscar categorias com contagem
+const getCategories = async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        categoria,
+        COUNT(*) as total
+      FROM blog_artigos 
+      GROUP BY categoria 
+      ORDER BY categoria ASC
+    `;
+
+    const result = await executeQuery(query);
+
+    res.json({
+      success: true,
+      data: result.rows
+    });
+
+  } catch (error) {
+    console.error('Erro ao buscar categorias:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor'
+    });
+  }
+};
+
+// Criar artigo (manter para compatibilidade)
+const create = async (req, res) => {
+  try {
+    const {
+      titulo, resumo, categoria, autor, coautor,
+      imagem_principal, tempo_leitura, conteudo_completo,
+      destaque = false
+    } = req.body;
+
+    if (!titulo || !categoria || !autor) {
+      return res.status(400).json({
+        success: false,
+        error: 'Título, categoria e autor são obrigatórios'
+      });
+    }
+
+    const query = `
+      INSERT INTO blog_artigos 
+      (titulo, resumo, categoria, autor, coautor, imagem_principal, tempo_leitura, conteudo_completo, destaque)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING id, titulo, created_at
+    `;
+
+    const values = [
+      titulo, resumo, categoria, autor, coautor,
+      imagem_principal, tempo_leitura || 5, conteudo_completo, destaque
+    ];
+
+    const result = await executeQuery(query, values);
+
+    res.status(201).json({
+      success: true,
+      data: result.rows[0],
+      message: 'Artigo criado com sucesso'
+    });
+
+  } catch (error) {
+    console.error('Erro ao criar artigo:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor'
+    });
+  }
+};
+
+// Atualizar artigo (manter para compatibilidade)
+const update = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateFields = req.body;
+
+    if (Object.keys(updateFields).length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Nenhum campo para atualizar'
+      });
+    }
+
+    const allowedFields = [
+      'titulo', 'resumo', 'categoria', 'autor', 'coautor',
+      'imagem_principal', 'tempo_leitura', 'conteudo_completo', 'destaque'
+    ];
+
+    const fields = [];
+    const values = [];
+    let paramIndex = 1;
+
+    Object.keys(updateFields).forEach(field => {
+      if (allowedFields.includes(field)) {
+        fields.push(`${field} = $${paramIndex}`);
+        values.push(updateFields[field]);
+        paramIndex++;
+      }
+    });
+
+    if (fields.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Nenhum campo válido para atualizar'
+      });
+    }
+
+    const query = `
+      UPDATE blog_artigos 
+      SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $${paramIndex}
+      RETURNING id, titulo, updated_at
+    `;
+
+    values.push(parseInt(id));
+
+    const result = await executeQuery(query, values);
+
+    if (result.rows.length > 0) {
+      res.json({
+        success: true,
+        data: result.rows[0],
+        message: 'Artigo atualizado com sucesso'
+      });
+    } else {
+      res.status(404).json({
+        success: false,
+        error: 'Artigo não encontrado'
+      });
+    }
+
+  } catch (error) {
+    console.error('Erro ao atualizar artigo:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor'
+    });
+  }
+};
+
+// Deletar artigo (manter para compatibilidade)
+const deleteArticle = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const query = `
+      DELETE FROM blog_artigos 
+      WHERE id = $1
+      RETURNING id, titulo
+    `;
+
+    const result = await executeQuery(query, [parseInt(id)]);
+
+    if (result.rows.length > 0) {
+      res.json({
+        success: true,
+        data: result.rows[0],
+        message: 'Artigo deletado com sucesso'
+      });
+    } else {
+      res.status(404).json({
+        success: false,
+        error: 'Artigo não encontrado'
+      });
+    }
+
+  } catch (error) {
+    console.error('Erro ao deletar artigo:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor'
+    });
+  }
+};
+
+module.exports = {
+  getAll,
+  getFeaturedMain,
+  getRecent,
+  searchByLetter,
+  getBySlug,
+  getById,
+  getCategories,
+  create,
+  update,
+  delete: deleteArticle
+};
