@@ -1,3 +1,5 @@
+//Article.js
+
 const { query, transaction } = require('../config/database');
 const slugify = require('slugify');
 

@@ -1,3 +1,5 @@
+//frontend/src/components/MainLayout.jsx
+
 import React from 'react';
 import FeaturedPostCard from './FeaturedPostCard';
 import CombinedTopicsSection from './CombinedTopicsSection';

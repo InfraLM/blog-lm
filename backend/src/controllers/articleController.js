@@ -1,5 +1,19 @@
 const { pool } = require('../config/database');
 
+// Função auxiliar para normalizar slugs
+const normalizeSlug = (text) => {
+  if (!text) return '';
+  
+  return text
+    .toLowerCase()
+    .normalize('NFD')                   // Decompor caracteres acentuados
+    .replace(/[\u0300-\u036f]/g, '')    // Remover acentos
+    .replace(/[^a-z0-9\s-]/g, '')       // Remover caracteres especiais
+    .replace(/\s+/g, '-')                // Espaços para hífens
+    .replace(/-+/g, '-')                 // Múltiplos hífens para um só
+    .replace(/^-+|-+$/g, '');            // Remover hífens do início/fim
+};
+
 // Função auxiliar para executar queries com retry
 const executeQuery = async (query, params = []) => {
   let client;
@@ -74,11 +88,7 @@ const getAll = async (req, res) => {
       SELECT 
         id, titulo, resumo, categoria, autor, coautor,
         imagem_principal, tempo_leitura, visualizacoes,
-        destaque, created_at, updated_at,
-        CASE 
-          WHEN LENGTH(titulo) > 50 THEN LOWER(REPLACE(REPLACE(REPLACE(titulo, ' ', '-'), 'ç', 'c'), 'ã', 'a'))
-          ELSE LOWER(REPLACE(titulo, ' ', '-'))
-        END as slug
+        destaque, created_at, updated_at, slug
       FROM blog_artigos 
       WHERE 1=1 ${whereClause}
       ${orderClause}
@@ -121,11 +131,7 @@ const getFeaturedMain = async (req, res) => {
       SELECT 
         id, titulo, resumo, categoria, autor, coautor,
         imagem_principal, tempo_leitura, visualizacoes,
-        destaque, created_at, updated_at,
-        CASE 
-          WHEN LENGTH(titulo) > 50 THEN LOWER(REPLACE(REPLACE(REPLACE(titulo, ' ', '-'), 'ç', 'c'), 'ã', 'a'))
-          ELSE LOWER(REPLACE(titulo, ' ', '-'))
-        END as slug
+        destaque, created_at, updated_at, slug
       FROM blog_artigos 
       WHERE destaque = true 
       ORDER BY created_at DESC 
@@ -145,11 +151,7 @@ const getFeaturedMain = async (req, res) => {
         SELECT 
           id, titulo, resumo, categoria, autor, coautor,
           imagem_principal, tempo_leitura, visualizacoes,
-          destaque, created_at, updated_at,
-          CASE 
-            WHEN LENGTH(titulo) > 50 THEN LOWER(REPLACE(REPLACE(REPLACE(titulo, ' ', '-'), 'ç', 'c'), 'ã', 'a'))
-            ELSE LOWER(REPLACE(titulo, ' ', '-'))
-          END as slug
+          destaque, created_at, updated_at, slug
         FROM blog_artigos 
         ORDER BY created_at DESC 
         LIMIT 1
@@ -188,11 +190,7 @@ const getRecent = async (req, res) => {
       SELECT 
         id, titulo, resumo, categoria, autor, coautor,
         imagem_principal, tempo_leitura, visualizacoes,
-        destaque, created_at, updated_at,
-        CASE 
-          WHEN LENGTH(titulo) > 50 THEN LOWER(REPLACE(REPLACE(REPLACE(titulo, ' ', '-'), 'ç', 'c'), 'ã', 'a'))
-          ELSE LOWER(REPLACE(titulo, ' ', '-'))
-        END as slug
+        destaque, created_at, updated_at, slug
       FROM blog_artigos 
       ${whereClause}
       ORDER BY created_at DESC 
@@ -233,11 +231,7 @@ const searchByLetter = async (req, res) => {
       SELECT 
         id, titulo, resumo, categoria, autor, coautor,
         imagem_principal, tempo_leitura, visualizacoes,
-        destaque, created_at, updated_at,
-        CASE 
-          WHEN LENGTH(titulo) > 50 THEN LOWER(REPLACE(REPLACE(REPLACE(titulo, ' ', '-'), 'ç', 'c'), 'ã', 'a'))
-          ELSE LOWER(REPLACE(titulo, ' ', '-'))
-        END as slug
+        destaque, created_at, updated_at, slug
       FROM blog_artigos 
       WHERE UPPER(LEFT(titulo, 1)) = UPPER($1)
       ORDER BY titulo ASC
@@ -259,18 +253,24 @@ const searchByLetter = async (req, res) => {
   }
 };
 
-// Buscar por slug
+// Buscar por slug - ATUALIZADO COM NORMALIZAÇÃO
 const getBySlug = async (req, res) => {
   try {
-    const { slug } = req.params;
+    let { slug } = req.params;
+    
+    // Decodificar e normalizar o slug recebido
+    slug = normalizeSlug(decodeURIComponent(slug));
+    
+    console.log('🔍 Buscando slug normalizado:', slug);
 
     const query = `
       SELECT 
         id, titulo, resumo, categoria, autor, coautor,
         imagem_principal, tempo_leitura, visualizacoes,
-        destaque, created_at, updated_at, conteudo_completo
+        destaque, created_at, updated_at, content as conteudo_completo,
+        slug
       FROM blog_artigos 
-      WHERE LOWER(REPLACE(titulo, ' ', '-')) = LOWER($1)
+      WHERE slug = $1
       LIMIT 1
     `;
 
@@ -290,6 +290,7 @@ const getBySlug = async (req, res) => {
         data: result.rows[0]
       });
     } else {
+      console.log('⚠️ Artigo não encontrado com slug:', slug);
       res.status(404).json({
         success: false,
         error: 'Artigo não encontrado'
@@ -297,10 +298,11 @@ const getBySlug = async (req, res) => {
     }
 
   } catch (error) {
-    console.error('Erro ao buscar artigo por slug:', error);
+    console.error('❌ Erro ao buscar artigo por slug:', error);
     res.status(500).json({
       success: false,
-      error: 'Erro interno do servidor'
+      error: 'Erro interno do servidor',
+      details: error.message
     });
   }
 };
@@ -314,7 +316,8 @@ const getById = async (req, res) => {
       SELECT 
         id, titulo, resumo, categoria, autor, coautor,
         imagem_principal, tempo_leitura, visualizacoes,
-        destaque, created_at, updated_at, conteudo_completo
+        destaque, created_at, updated_at, content as conteudo_completo,
+        slug
       FROM blog_artigos 
       WHERE id = $1
     `;
@@ -394,15 +397,18 @@ const create = async (req, res) => {
       });
     }
 
+    // Gerar slug automaticamente
+    const slug = normalizeSlug(titulo);
+
     const query = `
       INSERT INTO blog_artigos 
-      (titulo, resumo, categoria, autor, coautor, imagem_principal, tempo_leitura, conteudo_completo, destaque)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      RETURNING id, titulo, created_at
+      (titulo, slug, resumo, categoria, autor, coautor, imagem_principal, tempo_leitura, content, destaque)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      RETURNING id, titulo, slug, created_at
     `;
 
     const values = [
-      titulo, resumo, categoria, autor, coautor,
+      titulo, slug, resumo, categoria, autor, coautor,
       imagem_principal, tempo_leitura || 5, conteudo_completo, destaque
     ];
 
@@ -438,7 +444,7 @@ const update = async (req, res) => {
 
     const allowedFields = [
       'titulo', 'resumo', 'categoria', 'autor', 'coautor',
-      'imagem_principal', 'tempo_leitura', 'conteudo_completo', 'destaque'
+      'imagem_principal', 'tempo_leitura', 'content', 'destaque'
     ];
 
     const fields = [];
@@ -453,6 +459,13 @@ const update = async (req, res) => {
       }
     });
 
+    // Se o título foi atualizado, atualizar o slug também
+    if (updateFields.titulo) {
+      fields.push(`slug = $${paramIndex}`);
+      values.push(normalizeSlug(updateFields.titulo));
+      paramIndex++;
+    }
+
     if (fields.length === 0) {
       return res.status(400).json({
         success: false,
@@ -464,7 +477,7 @@ const update = async (req, res) => {
       UPDATE blog_artigos 
       SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE id = $${paramIndex}
-      RETURNING id, titulo, updated_at
+      RETURNING id, titulo, slug, updated_at
     `;
 
     values.push(parseInt(id));
