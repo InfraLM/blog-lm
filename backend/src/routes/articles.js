@@ -12,6 +12,18 @@ router.get('/categories', articleController.getCategories);
 // 2. Rotas com parâmetros nomeados
 router.get('/search/:letter', articleController.searchByLetter);
 router.get('/slug/:slug', articleController.getBySlug);
+router.get('/articles/slug/:slug', async (req, res) => {
+  const { slug } = req.params;
+  // Busca o artigo que corresponde ao slug gerado
+  const article = await Article.findOne({
+    where: {
+      titulo: {
+        [Op.iLike]: `%${slug.replace(/-/g, ' ')}%`
+      }
+    }
+  });
+  // ...resto do código
+});
 
 // 3. Rotas com parâmetros genéricos (:id pode capturar qualquer coisa)
 router.get('/:id', articleController.getById);

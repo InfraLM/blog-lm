@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Calendar, User, Clock } from 'lucide-react';
 import { articleService } from '../services/api';
@@ -10,12 +10,26 @@ const ArticleDetail = () => {
   const [article, setArticle] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeHeading, setActiveHeading] = useState('');
+  const observerRef = useRef(null);
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
   useEffect(() => {
     fetchArticle();
   }, [slug]);
+
+  useEffect(() => {
+    if (article && article.content) {
+      setupIntersectionObserver();
+    }
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, [article]);
 
   const fetchArticle = async () => {
     try {
@@ -24,13 +38,11 @@ const ArticleDetail = () => {
 
       console.log('🔍 Buscando artigo com slug:', slug);
 
-      // Tentar usar o serviço primeiro
       let response;
       try {
         response = await articleService.getBySlug(slug);
       } catch (serviceError) {
         console.log('⚠️ Serviço falhou, tentando fetch direto...');
-        // Fallback para fetch direto
         const fetchResponse = await fetch(`${API_URL}/api/articles/slug/${slug}`);
         response = await fetchResponse.json();
       }
@@ -38,7 +50,6 @@ const ArticleDetail = () => {
       console.log('📦 Resposta da API:', response);
 
       if (response.success && response.data) {
-        // Normalizar o campo de conteúdo (pode vir como content ou conteudo_completo)
         const articleData = {
           ...response.data,
           content: response.data.conteudo_completo || response.data.content
@@ -57,6 +68,28 @@ const ArticleDetail = () => {
     }
   };
 
+  const setupIntersectionObserver = () => {
+    const options = {
+      root: null,
+      rootMargin: '-100px 0px -66%',
+      threshold: 0
+    };
+
+    observerRef.current = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          setActiveHeading(entry.target.id);
+        }
+      });
+    }, options);
+
+    // Observar apenas H1s
+    const headings = document.querySelectorAll('.article-content h1[id]');
+    headings.forEach((heading) => {
+      observerRef.current.observe(heading);
+    });
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -67,40 +100,45 @@ const ArticleDetail = () => {
     });
   };
 
-  // Função para extrair títulos do conteúdo HTML e criar índice
-  const extractHeadings = (htmlContent) => {
+  // Extrair apenas H1s
+  const extractH1Headings = (htmlContent) => {
     if (!htmlContent) return [];
     
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = htmlContent;
     
-    const headings = tempDiv.querySelectorAll('h1, h2, h3, h4, h5, h6');
-    return Array.from(headings).map((heading, index) => ({
-      id: `heading-${index}`,
-      text: heading.textContent,
-      level: parseInt(heading.tagName.charAt(1))
+    const h1Elements = tempDiv.querySelectorAll('h1');
+    return Array.from(h1Elements).map((heading, index) => ({
+      id: `h1-${index}`,
+      text: heading.textContent
     }));
   };
 
   const scrollToHeading = (headingId) => {
     const element = document.getElementById(headingId);
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const yOffset = -100;
+      const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
+      
+      window.scrollTo({ 
+        top: y, 
+        behavior: 'smooth' 
+      });
     }
   };
 
-  // Função para adicionar IDs aos títulos no conteúdo HTML
-  const addIdsToHeadings = (htmlContent) => {
+  // Adicionar IDs apenas aos H1s
+  const addIdsToH1s = (htmlContent) => {
     if (!htmlContent) return '';
     
     let content = htmlContent;
-    const headingRegex = /<(h[1-6])([^>]*)>(.*?)<\/h[1-6]>/gi;
-    let headingIndex = 0;
+    const h1Regex = /<h1([^>]*)>(.*?)<\/h1>/gi;
+    let h1Index = 0;
     
-    content = content.replace(headingRegex, (match, tag, attributes, text) => {
-      const id = `heading-${headingIndex}`;
-      headingIndex++;
-      return `<${tag}${attributes} id="${id}">${text}</${tag}>`;
+    content = content.replace(h1Regex, (match, attributes, text) => {
+      const id = `h1-${h1Index}`;
+      h1Index++;
+      return `<h1${attributes} id="${id}">${text}</h1>`;
     });
     
     return content;
@@ -145,8 +183,8 @@ const ArticleDetail = () => {
     );
   }
 
-  const headings = extractHeadings(article.content);
-  const contentWithIds = addIdsToHeadings(article.content);
+  const headings = extractH1Headings(article.content);
+  const contentWithIds = addIdsToH1s(article.content);
 
   return (
     <div className="article-page">
@@ -161,7 +199,7 @@ const ArticleDetail = () => {
       </div>
 
       <div className="article-layout">
-        {/* Sidebar com Índice */}
+        {/* Sidebar com Índice - apenas H1s */}
         {headings.length > 0 && (
           <aside className="article-sidebar">
             <div className="sidebar-content">
@@ -170,7 +208,7 @@ const ArticleDetail = () => {
                 {headings.map((heading) => (
                   <button
                     key={heading.id}
-                    className={`index-item level-${heading.level}`}
+                    className={`index-item ${activeHeading === heading.id ? 'active' : ''}`}
                     onClick={() => scrollToHeading(heading.id)}
                   >
                     {heading.text}

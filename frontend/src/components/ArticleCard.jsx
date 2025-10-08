@@ -1,5 +1,8 @@
+//frontend/src/components/ArticleCard.jsx
+
 import React from 'react';
 import { Clock, User, Users, Calendar, ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const ArticleCard = ({ article }) => {
   const formatDate = (date) => {
@@ -10,13 +13,18 @@ const ArticleCard = ({ article }) => {
     });
   };
 
-  const handleClick = () => {
-    window.location.href = `/artigo/${article.slug}`;
+  const generateSlug = (title) => {
+    return title
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // remove acentos
+      .replace(/[^a-z0-9]+/g, '-')     // substitui caracteres especiais por -
+      .replace(/-+/g, '-')             // remove múltiplos hífens seguidos
+      .replace(/^-|-$/g, '');          // remove hífens no início e fim
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group h-full flex flex-col"
-         onClick={handleClick}>
+    <div className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group h-full flex flex-col">
       <div className="relative h-48 overflow-hidden bg-gradient-to-br from-gray-100 to-gray-50">
         {article.imagem_principal ? (
           <img 

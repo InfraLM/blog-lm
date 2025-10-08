@@ -3,19 +3,17 @@ import Header from './Header';
 import MainFeaturedCard from './MainFeaturedCard';
 import ArticleCard from './ArticleCard';
 import AllArticlesList from './AllArticlesList';
-import { Loader2, TrendingUp, BookOpen } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
 const BlogPage = () => {
   const [featuredArticle, setFeaturedArticle] = useState(null);
   const [recentArticles, setRecentArticles] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ total: 0, categories: 0 });
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
   useEffect(() => {
     fetchHomeData();
-    fetchStats();
   }, []);
 
   const fetchHomeData = async () => {
@@ -45,27 +43,6 @@ const BlogPage = () => {
     }
   };
 
-  const fetchStats = async () => {
-    try {
-      // Buscar contagem real de artigos
-      const articlesRes = await fetch(`${API_URL}/api/articles?limit=1`);
-      const articlesData = await articlesRes.json();
-      
-      // Buscar categorias
-      const categoriesRes = await fetch(`${API_URL}/api/categories`);
-      const categoriesData = await categoriesRes.json();
-      
-      if (articlesData.success && categoriesData.success) {
-        setStats({
-          total: articlesData.total || 0, // Total real do banco
-          categories: categoriesData.data?.length || 0
-        });
-      }
-    } catch (error) {
-      console.error('Erro ao carregar estatísticas:', error);
-    }
-  };
-
   // IDs para excluir da listagem completa (destaque + 3 recentes)
   const excludeIds = [
     ...(featuredArticle ? [featuredArticle.id] : []),
@@ -91,30 +68,16 @@ const BlogPage = () => {
       <Header />
       
       <div className="bg-gray-50 min-h-screen">
-        {/* Hero Section com estatísticas */}
-        <div className="bg-gradient-to-r from-red-600 to-red-700 text-white py-12">
+        {/* Hero Section simplificada */}
+        <div className="bg-gradient-to-r from-red-600 to-red-700 text-white py-16">
           <div className="container mx-auto px-4">
-            <div className="text-center mb-8">
+            <div className="text-center">
               <h1 className="text-4xl md:text-5xl font-bold mb-4">
                 Portal de Conhecimento Médico
               </h1>
               <p className="text-xl opacity-90">
                 Artigos, protocolos e discussões para profissionais da saúde
               </p>
-            </div>
-            
-            {/* Apenas 2 cards de estatísticas */}
-            <div className="grid grid-cols-2 gap-6 max-w-2xl mx-auto">
-              <div className="bg-white/10 backdrop-blur rounded-lg p-6 text-center">
-                <BookOpen className="w-10 h-10 mx-auto mb-3" />
-                <div className="text-4xl font-bold">{stats.total}</div>
-                <div className="text-base opacity-90">Artigos Publicados</div>
-              </div>
-              <div className="bg-white/10 backdrop-blur rounded-lg p-6 text-center">
-                <TrendingUp className="w-10 h-10 mx-auto mb-3" />
-                <div className="text-4xl font-bold">{stats.categories}</div>
-                <div className="text-base opacity-90">Especialidades Médicas</div>
-              </div>
             </div>
           </div>
         </div>

@@ -14,6 +14,17 @@ const normalizeSlug = (text) => {
     .replace(/^-+|-+$/g, '');            // Remover hífens do início/fim
 };
 
+// Função auxiliar para criar slug a partir do título
+const createSlug = (title) => {
+  return title
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // remove acentos
+    .replace(/[^a-z0-9]+/g, '-')     // substitui caracteres especiais por -
+    .replace(/-+/g, '-')             // remove múltiplos hífens seguidos
+    .replace(/^-|-$/g, '');          // remove hífens no início e fim
+};
+
 // Função auxiliar para executar queries com retry
 const executeQuery = async (query, params = []) => {
   let client;

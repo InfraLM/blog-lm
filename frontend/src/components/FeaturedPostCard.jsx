@@ -1,3 +1,5 @@
+//frontend/src/components/FeaturedPostCard.jsx
+
 import React, { useState, useEffect } from "react";
 import MainFeaturedCard from "./MainFeaturedCard";
 
