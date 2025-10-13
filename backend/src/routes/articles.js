@@ -2,8 +2,6 @@ const express = require('express');
 const router = express.Router();
 const articleController = require('../controllers/articleController');
 
-// ⚠️ ORDEM IMPORTA! Rotas específicas ANTES de rotas com parâmetros
-
 // 1. Rotas específicas (sem parâmetros dinâmicos)
 router.get('/featured-main', articleController.getFeaturedMain);
 router.get('/recent', articleController.getRecent);
@@ -22,7 +20,6 @@ router.get('/articles/slug/:slug', async (req, res) => {
       }
     }
   });
-  // ...resto do código
 });
 
 // 3. Rotas com parâmetros genéricos (:id pode capturar qualquer coisa)

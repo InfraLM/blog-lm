@@ -43,12 +43,6 @@ const BlogPage = () => {
     }
   };
 
-  // IDs para excluir da listagem completa (destaque + 3 recentes)
-  const excludeIds = [
-    ...(featuredArticle ? [featuredArticle.id] : []),
-    ...recentArticles.map(article => article.id)
-  ];
-
   if (loading) {
     return (
       <>
@@ -112,8 +106,9 @@ const BlogPage = () => {
             </div>
           )}
 
-          {/* Listagem Completa de Todos os Outros Artigos */}
-          <AllArticlesList excludeIds={excludeIds} />
+          {/* Listagem Completa de TODOS os Artigos - SEM EXCLUSÕES */}
+          {/* Agora mostra todos os artigos, incluindo destaque e recentes */}
+          <AllArticlesList excludeIds={[]} />
         </div>
       </div>
     </>

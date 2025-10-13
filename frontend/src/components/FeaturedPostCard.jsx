@@ -1,12 +1,12 @@
-//frontend/src/components/FeaturedPostCard.jsx
-
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import MainFeaturedCard from "./MainFeaturedCard";
 
 const FeaturedPostCard = () => {
   const [featuredArticle, setFeaturedArticle] = useState(null);
   const [recentArticles, setRecentArticles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -86,7 +86,8 @@ const FeaturedPostCard = () => {
   };
 
   const handleArticleClick = (article) => {
-    window.location.href = `/artigo/${article.slug || article.id}`;
+    // Usar navigate ao invés de window.location.href para navegação SPA
+    navigate(`/artigo/${article.slug || article.id}`);
   };
 
   if (loading) {

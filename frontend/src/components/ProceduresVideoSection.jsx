@@ -4,43 +4,37 @@ import './ProceduresVideoSection.css';
 const ProceduresVideoSection = () => {
   const [selectedVideo, setSelectedVideo] = useState(null);
 
-  // Dados dos vídeos de procedimentos
-  // Para usar vídeos reais do YouTube, substitua os IDs pelos seus vídeos
+  // Dados dos vídeos de procedimentos - ATUALIZADOS COM TÍTULOS REAIS
   const procedureVideos = [
     {
       id: 1,
-      title: "Intubação Orotraqueal: Técnica Completa",
-      description: "Aprenda o passo a passo da intubação orotraqueal com técnicas avançadas e dicas práticas.",
-      duration: "8:45",
-      views: "12.5K",
-      // Para vídeo real do YouTube, use: videoId: "SEU_VIDEO_ID_AQUI"
-      videoId: "dQw4w9WgXcQ", // Placeholder - substitua pelo ID real
-      thumbnail: "https://via.placeholder.com/400x225/e74c3c/ffffff?text=Intubação+Orotraqueal",
+      title: "INTUBAÇÃO OROTRAQUEAL | COMO FAZER DE FORMA SIMPLES?",
+      description: "Aprenda o passo a passo da intubação orotraqueal com técnicas avançadas e dicas práticas para realizar o procedimento de forma simples e segura.",
+      duration: "32:55",
+      views: "2K",
+      videoId: "yTzbOhmpfqU",
       category: "Procedimentos Avançados"
     },
     {
       id: 2,
-      title: "Punção Venosa Central: Guia Prático",
-      description: "Técnica segura para punção venosa central com orientações sobre anatomia e complicações.",
-      duration: "12:30",
-      views: "8.9K",
-      videoId: "dQw4w9WgXcQ", // Placeholder - substitua pelo ID real
-      thumbnail: "https://via.placeholder.com/400x225/27ae60/ffffff?text=Punção+Venosa+Central",
+      title: "ACESSO VENOSO CENTRAL | AULA PRÁTICA COMPLETA",
+      description: "Técnica segura para punção venoso central com orientações detalhadas sobre anatomia, indicações e como evitar complicações.",
+      duration: "22:02",
+      views: "102K",
+      videoId: "zmO3kJCiV8g",
       category: "Procedimentos Invasivos"
     },
     {
       id: 3,
-      title: "Sutura: Técnicas e Materiais",
-      description: "Diferentes tipos de sutura, escolha de materiais e técnicas para melhor cicatrização.",
-      duration: "15:20",
-      views: "25.3K",
-      videoId: "dQw4w9WgXcQ", // Placeholder - substitua pelo ID real
-      thumbnail: "https://via.placeholder.com/400x225/3498db/ffffff?text=Técnicas+de+Sutura",
-      category: "Procedimentos Básicos"
+      title: "SUTURA NO COURO CABELUDO EM ANGOLA | PROCEDIMENTO COMPLETO",
+      description: "Demonstração prática completa de técnica de sutura em couro cabeludo, com dicas sobre materiais e técnicas para melhor cicatrização.",
+      duration: "07:11",
+      views: "1K",
+      videoId: "yDWWeg92a94",
+      category: "Procedimentos Práticos"
     }
   ];
 
-  // Função para abrir vídeo do YouTube
   const openVideo = (video) => {
     const youtubeUrl = `https://www.youtube.com/watch?v=${video.videoId}`;
     window.open(youtubeUrl, '_blank');
@@ -70,7 +64,7 @@ const ProceduresVideoSection = () => {
             >
               <div className="video-thumbnail">
                 <img 
-                  src={video.thumbnail} // Use getYoutubeThumbnail(video.videoId) para thumbnails reais
+                  src={getYoutubeThumbnail(video.videoId)}
                   alt={video.title}
                   className="thumbnail-image"
                 />
@@ -103,7 +97,10 @@ const ProceduresVideoSection = () => {
         </div>
 
         <div className="section-footer">
-          <button className="view-all-button">
+          <button 
+            className="view-all-button"
+            onClick={() => window.open('https://www.youtube.com/@liberdademedicatv', '_blank')}
+          >
             Ver Todos os Procedimentos
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/>
@@ -114,5 +111,4 @@ const ProceduresVideoSection = () => {
     </section>
   );
 };
-
 export default ProceduresVideoSection;

@@ -46,7 +46,7 @@ const AllArticlesList = ({ excludeIds = [] }) => {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/categories`);
+      const response = await fetch(`${API_URL}/api/articles/categories`);
       const data = await response.json();
       if (data.success) {
         setCategories(data.data);
@@ -109,17 +109,18 @@ const AllArticlesList = ({ excludeIds = [] }) => {
         </p>
       </div>
 
-      {/* Filtros e Ordenação */}
+      {/* Filtros e Ordenação - TUDO NA MESMA LINHA */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+        <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+          {/* Container dos filtros - agora sempre em linha */}
+          <div className="flex flex-row gap-4 items-center flex-wrap w-full lg:w-auto">
             {/* Filtro por Categoria */}
             <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-gray-500" />
+              <Filter className="w-4 h-4 text-gray-500 flex-shrink-0" />
               <select
                 value={selectedCategory}
                 onChange={(e) => handleCategoryChange(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 min-w-[200px]"
               >
                 <option value="">Todas as categorias</option>
                 {categories.map((cat) => (
@@ -132,11 +133,11 @@ const AllArticlesList = ({ excludeIds = [] }) => {
 
             {/* Ordenação */}
             <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-500">Ordenar por:</span>
+              <span className="text-sm text-gray-500 whitespace-nowrap">Ordenar por:</span>
               <select
                 value={sortBy}
                 onChange={(e) => handleSortChange(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 min-w-[180px]"
               >
                 <option value="recent">Mais recentes</option>
                 <option value="oldest">Mais antigos</option>
@@ -147,7 +148,7 @@ const AllArticlesList = ({ excludeIds = [] }) => {
           </div>
 
           {/* Contador de resultados */}
-          <div className="text-sm text-gray-500">
+          <div className="text-sm text-gray-500 whitespace-nowrap">
             Página {currentPage} de {totalPages} 
             {selectedCategory && ` • Categoria: ${selectedCategory}`}
           </div>

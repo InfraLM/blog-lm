@@ -83,7 +83,6 @@ const ArticleDetail = () => {
       });
     }, options);
 
-    // Observar apenas H1s
     const headings = document.querySelectorAll('.article-content h1[id]');
     headings.forEach((heading) => {
       observerRef.current.observe(heading);
@@ -100,7 +99,6 @@ const ArticleDetail = () => {
     });
   };
 
-  // Extrair apenas H1s
   const extractH1Headings = (htmlContent) => {
     if (!htmlContent) return [];
     
@@ -127,7 +125,6 @@ const ArticleDetail = () => {
     }
   };
 
-  // Adicionar IDs apenas aos H1s
   const addIdsToH1s = (htmlContent) => {
     if (!htmlContent) return '';
     
@@ -199,7 +196,6 @@ const ArticleDetail = () => {
       </div>
 
       <div className="article-layout">
-        {/* Sidebar com Índice - apenas H1s */}
         {headings.length > 0 && (
           <aside className="article-sidebar">
             <div className="sidebar-content">
@@ -219,10 +215,8 @@ const ArticleDetail = () => {
           </aside>
         )}
 
-        {/* Conteúdo Principal */}
         <main className="article-main">
           <div className="article-container">
-            {/* Botão Voltar */}
             <button 
               className="btn-back"
               onClick={() => navigate(-1)}
@@ -231,7 +225,6 @@ const ArticleDetail = () => {
               Voltar
             </button>
 
-            {/* Meta informações */}
             <div className="article-meta">
               <span className="meta-author">
                 <User size={16} style={{ display: 'inline', marginRight: '4px' }} />
@@ -253,14 +246,12 @@ const ArticleDetail = () => {
               )}
             </div>
 
-            {/* Introdução/Resumo */}
             {article.resumo && (
               <div className="article-intro">
                 <p>{article.resumo}</p>
               </div>
             )}
 
-            {/* Conteúdo do Artigo */}
             <div className="article-content">
               {contentWithIds ? (
                 <div dangerouslySetInnerHTML={{ __html: contentWithIds }} />
@@ -269,7 +260,6 @@ const ArticleDetail = () => {
               )}
             </div>
 
-            {/* Footer do Artigo */}
             <footer className="article-footer">
               {article.updated_at && (
                 <p className="last-update">
