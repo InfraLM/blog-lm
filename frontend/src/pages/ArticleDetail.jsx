@@ -13,7 +13,7 @@ const ArticleDetail = () => {
   const [activeHeading, setActiveHeading] = useState('');
   const observerRef = useRef(null);
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
 
   useEffect(() => {
     fetchArticle();
@@ -38,14 +38,7 @@ const ArticleDetail = () => {
 
       console.log('🔍 Buscando artigo com slug:', slug);
 
-      let response;
-      try {
-        response = await articleService.getBySlug(slug);
-      } catch (serviceError) {
-        console.log('⚠️ Serviço falhou, tentando fetch direto...');
-        const fetchResponse = await fetch(`${API_URL}/api/articles/slug/${slug}`);
-        response = await fetchResponse.json();
-      }
+      const response = await articleService.getBySlug(slug);
 
       console.log('📦 Resposta da API:', response);
 
