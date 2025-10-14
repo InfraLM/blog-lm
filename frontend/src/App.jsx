@@ -20,7 +20,7 @@ function HomePage() {
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/home-e-blog-lm">
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/blog" element={<BlogPage />} />
