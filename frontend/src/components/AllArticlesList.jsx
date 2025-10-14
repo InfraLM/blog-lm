@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ArticleCard from './ArticleCard';
 import { Loader2, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
+import { articleService } from '@/services/api';
 
 const AllArticlesList = ({ excludeIds = [] }) => {
   const [articles, setArticles] = useState([]);
@@ -11,7 +12,6 @@ const AllArticlesList = ({ excludeIds = [] }) => {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [sortBy, setSortBy] = useState('recent'); // recent, oldest, title
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
   const articlesPerPage = 9;
 
   useEffect(() => {
@@ -22,16 +22,16 @@ const AllArticlesList = ({ excludeIds = [] }) => {
   const fetchArticles = async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({
+      const filters = {
         page: currentPage,
         limit: articlesPerPage,
         ...(selectedCategory && { categoria: selectedCategory }),
         ...(sortBy && { sort: sortBy }),
         ...(excludeIds.length > 0 && { excludeIds: excludeIds.join(',') })
-      });
+      };
 
-      const response = await fetch(`${API_URL}/api/articles?${params}`);
-      const data = await response.json();
+      // Usando o serviço centralizado
+      const data = await articleService.getAll(filters);
 
       if (data.success) {
         setArticles(data.data);
@@ -46,8 +46,8 @@ const AllArticlesList = ({ excludeIds = [] }) => {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/articles/categories`);
-      const data = await response.json();
+      // Usando o serviço centralizado
+      const data = await articleService.getCategories();
       if (data.success) {
         setCategories(data.data);
       }

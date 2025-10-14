@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import ArticleContent from './ArticleContent';
-import { 
-  Calendar, Clock, User, Users, ArrowLeft, 
-  Eye, Loader2 
-} from 'lucide-react';
+import { Calendar, Clock, User, Users, ArrowLeft, Eye, Loader2 } from 'lucide-react';
+import { articleService } from '@/services/api';
 
 const ArticleBody = () => {
   const { slug } = useParams();
   const [article, setArticle] = useState(null);
   const [loading, setLoading] = useState(true);
   
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
   useEffect(() => {
     fetchArticle();
@@ -20,9 +17,7 @@ const ArticleBody = () => {
 
   const fetchArticle = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/articles/slug/${slug}`);
-      const data = await response.json();
-      
+      const data = await articleService.getBySlug(slug);
       if (data.success) {
         setArticle(data.data);
       }

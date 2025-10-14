@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import HeroSection from '../components/HeroSection';
 import ArticleList from '../components/ArticleList';
 import './Home.css';
+import { articleService } from '@/services/api';
 
 const Home = () => {
     const [articles, setArticles] = useState([]);
@@ -15,15 +16,8 @@ const Home = () => {
 
     const fetchArticles = async () => {
         try {
-            // IMPORTANTE: URL correta da API
-            const response = await fetch('http://localhost:3001/api/articles');
-            console.log('📡 Response status:', response.status);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const data = await response.json();
+            // Usando o serviço centralizado em vez de fetch direto
+            const data = await articleService.getAll();
             console.log('✅ Dados recebidos:', data);
             
             if (data.success && data.data) {
@@ -54,7 +48,6 @@ const Home = () => {
     return (
         <div className="home-container">
             <HeroSection />
-            {/* IMPORTANTE: Passar articles como props */}
             <ArticleList articles={articles} />
         </div>
     );

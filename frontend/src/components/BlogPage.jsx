@@ -4,13 +4,14 @@ import MainFeaturedCard from './MainFeaturedCard';
 import ArticleCard from './ArticleCard';
 import AllArticlesList from './AllArticlesList';
 import { Loader2 } from 'lucide-react';
+import { articleService } from '@/services/api';
 
 const BlogPage = () => {
   const [featuredArticle, setFeaturedArticle] = useState(null);
   const [recentArticles, setRecentArticles] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+  const API_URL = import.meta.env.VITE_API_URL
 
   useEffect(() => {
     fetchHomeData();

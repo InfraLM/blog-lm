@@ -1,6 +1,6 @@
 // src/services/api.js
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://liberdademedicaedu.com.br/api';
+const API_URL = import.meta.env.VITE_API_URL;
 
 // Função auxiliar para fazer requests
 const fetchWithTimeout = async (url, options = {}, timeout = 10000) => {

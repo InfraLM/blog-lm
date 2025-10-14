@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Search, X, Loader2 } from 'lucide-react';
+import { articleService } from '@/services/api';
 
 const AlphabetSearch = ({ onSearch, onClear }) => {
   const [selectedLetter, setSelectedLetter] = useState('');
@@ -7,7 +8,6 @@ const AlphabetSearch = ({ onSearch, onClear }) => {
   const [resultCount, setResultCount] = useState(0);
   
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
   
   const handleLetterClick = async (letter) => {
     if (selectedLetter === letter) {
@@ -19,7 +19,7 @@ const AlphabetSearch = ({ onSearch, onClear }) => {
     setIsLoading(true);
     
     try {
-      const response = await fetch(`${API_URL}/api/articles/search-by-letter/${letter}`);
+      const response = await fetch(`${articleService.apiUrl}/api/articles/search-by-letter/${letter}`);
       const data = await response.json();
       
       if (data.success) {

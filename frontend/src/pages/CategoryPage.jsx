@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import ArticleList from '../components/ArticleList';
 import './CategoryPage.css';
+import { articleService } from '@/services/api';
 
 const CategoryPage = () => {
   const { categoria } = useParams();
@@ -15,10 +16,8 @@ const CategoryPage = () => {
   const fetchCategoryArticles = async () => {
     try {
       setLoading(true);
-      const response = await fetch(
-        `http://localhost:3001/api/articles/category/${encodeURIComponent(categoria)}`
-      );
-      const data = await response.json();
+      // Usando o serviço centralizado
+      const data = await articleService.getByCategory(categoria);
       
       if (data.success) {
         setArticles(data.data);
@@ -47,3 +46,4 @@ const CategoryPage = () => {
 };
 
 export default CategoryPage;
+
