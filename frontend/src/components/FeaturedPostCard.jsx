@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import MainFeaturedCard from "./MainFeaturedCard";
+import { articleService } from '@/services/api';
 
 const FeaturedPostCard = () => {
   const [featuredArticle, setFeaturedArticle] = useState(null);
@@ -8,7 +9,7 @@ const FeaturedPostCard = () => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
 
   useEffect(() => {
     fetchFeaturedArticles();
@@ -17,8 +18,7 @@ const FeaturedPostCard = () => {
   const fetchFeaturedArticles = async () => {
     try {
       // Primeiro, buscar o artigo em destaque (destaque = true)
-      const featuredRes = await fetch(`${API_URL}/api/articles/featured-main`);
-      const featuredData = await featuredRes.json();
+      const featuredData = await articleService.getFeaturedMain();
       
       let excludeId = null;
       if (featuredData.success && featuredData.data) {
@@ -27,10 +27,7 @@ const FeaturedPostCard = () => {
       }
 
       // Buscar os 3 artigos mais recentes (excluindo o destaque)
-      const recentRes = await fetch(
-        `${API_URL}/api/articles/recent${excludeId ? `?excludeId=${excludeId}&limit=3` : '?limit=3'}`
-      );
-      const recentData = await recentRes.json();
+      const recentData = await articleService.getRecent(3, excludeId);
       
       if (recentData.success && recentData.data) {
         setRecentArticles(recentData.data);
