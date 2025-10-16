@@ -1,9 +1,9 @@
-// backend/src/server.js - VERSÃO SIMPLIFICADA BASEADA NO BLOG-ADM QUE FUNCIONA
+// backend/src/server.js - VERSÃO CORRIGIDA PARA CPANEL
 require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
-const { Client } = require('pg'); // Client simples, não Pool (usa menos memória)
+const { Client } = require('pg');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -70,11 +70,11 @@ async function connectPostgreSQL() {
 }
 
 // ============================================
-// ROTAS - COM PREFIXO /home-e-blog-lm
+// ROTAS - SEM PREFIXO (Passenger adiciona automaticamente)
 // ============================================
 
 // HEALTH CHECK
-app.get('/home-e-blog-lm/health', (req, res) => {
+app.get('/health', (req, res) => {
     res.json({
         success: true,
         status: 'ok',
@@ -85,7 +85,7 @@ app.get('/home-e-blog-lm/health', (req, res) => {
 });
 
 // LISTAR TODOS OS ARTIGOS
-app.get('/home-e-blog-lm/api/articles', async (req, res) => {
+app.get('/api/articles', async (req, res) => {
     try {
         if (!dbConnected) {
             return res.status(500).json({
@@ -180,7 +180,7 @@ app.get('/home-e-blog-lm/api/articles', async (req, res) => {
 });
 
 // ARTIGO EM DESTAQUE PRINCIPAL
-app.get('/home-e-blog-lm/api/articles/featured-main', async (req, res) => {
+app.get('/api/articles/featured-main', async (req, res) => {
     try {
         if (!dbConnected) {
             return res.status(500).json({
@@ -237,7 +237,7 @@ app.get('/home-e-blog-lm/api/articles/featured-main', async (req, res) => {
 });
 
 // ARTIGOS RECENTES
-app.get('/home-e-blog-lm/api/articles/recent', async (req, res) => {
+app.get('/api/articles/recent', async (req, res) => {
     try {
         if (!dbConnected) {
             return res.status(500).json({
@@ -286,8 +286,45 @@ app.get('/home-e-blog-lm/api/articles/recent', async (req, res) => {
     }
 });
 
+// BUSCAR CATEGORIAS
+app.get('/api/articles/categories', async (req, res) => {
+    try {
+        if (!dbConnected) {
+            return res.status(500).json({
+                success: false,
+                message: 'Banco de dados desconectado',
+                data: []
+            });
+        }
+
+        const query = `
+            SELECT 
+                categoria,
+                COUNT(*) as total
+            FROM blog_artigos 
+            GROUP BY categoria
+            ORDER BY total DESC
+        `;
+
+        const result = await pgClient.query(query);
+
+        res.json({
+            success: true,
+            data: result.rows
+        });
+
+    } catch (error) {
+        console.error('❌ Erro ao buscar categorias:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Erro interno do servidor',
+            data: []
+        });
+    }
+});
+
 // BUSCAR POR SLUG
-app.get('/home-e-blog-lm/api/articles/slug/:slug', async (req, res) => {
+app.get('/api/articles/slug/:slug', async (req, res) => {
     try {
         if (!dbConnected) {
             return res.status(500).json({
@@ -353,7 +390,7 @@ app.get('/home-e-blog-lm/api/articles/slug/:slug', async (req, res) => {
 });
 
 // BUSCAR POR ID
-app.get('/home-e-blog-lm/api/articles/:id', async (req, res) => {
+app.get('/api/articles/:id', async (req, res) => {
     try {
         if (!dbConnected) {
             return res.status(500).json({
@@ -404,43 +441,6 @@ app.get('/home-e-blog-lm/api/articles/:id', async (req, res) => {
     }
 });
 
-// BUSCAR CATEGORIAS
-app.get('/home-e-blog-lm/api/articles/categories', async (req, res) => {
-    try {
-        if (!dbConnected) {
-            return res.status(500).json({
-                success: false,
-                message: 'Banco de dados desconectado',
-                data: []
-            });
-        }
-
-        const query = `
-            SELECT 
-                categoria,
-                COUNT(*) as total
-            FROM blog_artigos 
-            GROUP BY categoria
-            ORDER BY total DESC
-        `;
-
-        const result = await pgClient.query(query);
-
-        res.json({
-            success: true,
-            data: result.rows
-        });
-
-    } catch (error) {
-        console.error('❌ Erro ao buscar categorias:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Erro interno do servidor',
-            data: []
-        });
-    }
-});
-
 // 404 HANDLER
 app.use((req, res) => {
     res.status(404).json({
@@ -474,8 +474,9 @@ async function startServer() {
             console.log('✅ Servidor iniciado com sucesso!');
             console.log('🌐 Porta:', PORT);
             console.log('📊 PostgreSQL:', dbConnected ? 'Conectado' : 'Desconectado');
-            console.log('🔗 Health check: /home-e-blog-lm/health');
-            console.log('🔗 API: /home-e-blog-lm/api/articles');
+            console.log('🔗 Health check: /health');
+            console.log('🔗 API: /api/articles');
+            console.log('⚠️ Passenger vai montar em: /home-e-blog-lm');
             console.log('========================================');
         });
     } catch (error) {
@@ -509,4 +510,3 @@ process.on('uncaughtException', (error) => {
 
 // INICIAR
 startServer();
-
